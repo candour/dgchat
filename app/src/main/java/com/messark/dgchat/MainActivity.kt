@@ -6,6 +6,9 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -31,6 +34,7 @@ class MainActivity : ComponentActivity() {
                 val messages by viewModel.messages.collectAsState()
                 val isConnected by viewModel.isConnected.collectAsState()
                 val isJoining by viewModel.isJoining.collectAsState()
+                val connectionLog by viewModel.connectionLog.collectAsState()
                 var showSettings by remember { mutableStateOf(false) }
 
                 Scaffold(
@@ -52,15 +56,32 @@ class MainActivity : ComponentActivity() {
                             .fillMaxSize()
                     ) {
                         if (!isConnected) {
-                            Box(
-                                modifier = Modifier.weight(1f).fillMaxWidth(),
-                                contentAlignment = Alignment.Center
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
                             ) {
                                 if (isJoining) {
                                     CircularProgressIndicator()
                                 } else {
                                     Button(onClick = { viewModel.connectAndJoin() }) {
                                         Text("Connect")
+                                    }
+                                }
+
+                                if (connectionLog.isNotBlank()) {
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    SelectionContainer {
+                                        Text(
+                                            text = connectionLog,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .verticalScroll(rememberScrollState()),
+                                            style = MaterialTheme.typography.bodySmall
+                                        )
                                     }
                                 }
                             }

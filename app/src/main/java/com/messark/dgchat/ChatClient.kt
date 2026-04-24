@@ -47,81 +47,71 @@ class ChatClient(
     private val MAX_SEEN_IDS = 1000
 
     suspend fun connect(): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val (response, _) = dnsHelper.queryTxt(baseDomain)
-            if (response.isEmpty()) return@withContext false
+        val (response, _) = dnsHelper.queryTxt(baseDomain)
+        if (response.isEmpty()) throw Exception("Empty TXT response from $baseDomain")
 
-            val responseStr = response.toString(Charsets.UTF_8)
-            val parts = responseStr.split(" ")
-            val pubKeyEncoded = parts[0]
-            serverPublicKey = Base32Crockford.decode(pubKeyEncoded)
+        val responseStr = response.toString(Charsets.UTF_8)
+        val parts = responseStr.split(" ")
+        val pubKeyEncoded = parts[0]
+        serverPublicKey = Base32Crockford.decode(pubKeyEncoded)
 
-            clientCipherKey = Crypto.ecdh(clientPrivateKey, serverPublicKey!!)
-            true
-        } catch (e: Exception) {
-            Log.e("ChatClient", "Connection failed", e)
-            false
-        }
+        clientCipherKey = Crypto.ecdh(clientPrivateKey, serverPublicKey!!)
+        true
     }
 
     suspend fun join(channel: String, nickname: String): Boolean = withContext(Dispatchers.IO) {
-        try {
-            channelName = if (channel.startsWith("#")) channel else "#$channel"
+        channelName = if (channel.startsWith("#")) channel else "#$channel"
 
-            // PBKDF2 to derive name private key
-            val namePrivBytes = Crypto.pbkdf2(
-                channelName!!.lowercase().toByteArray(),
-                serverPublicKey!!,
-                4_000_000,
-                32
-            )
-            namePrivateKey = namePrivBytes
-            val namePublicKey = Crypto.derivePublicKey(namePrivBytes)
+        // PBKDF2 to derive name private key
+        val namePrivBytes = Crypto.pbkdf2(
+            channelName!!.lowercase().toByteArray(),
+            serverPublicKey!!,
+            4_000_000,
+            32
+        )
+        namePrivateKey = namePrivBytes
+        val namePublicKey = Crypto.derivePublicKey(namePrivBytes)
 
-            val nonce = ByteArray(12)
-            SecureRandom().nextBytes(nonce)
+        val nonce = ByteArray(12)
+        SecureRandom().nextBytes(nonce)
 
-            val joinMsg = ByteBuffer.allocate(2 + nickname.length + 32)
-                .put("1J".toByteArray())
-                .put(nickname.toByteArray())
-                .put(namePublicKey)
-                .array()
+        val joinMsg = ByteBuffer.allocate(2 + nickname.length + 32)
+            .put("1J".toByteArray())
+            .put(nickname.toByteArray())
+            .put(namePublicKey)
+            .array()
 
-            val encrypted = Crypto.encryptGcm(clientCipherKey!!, nonce, joinMsg)
+        val encrypted = Crypto.encryptGcm(clientCipherKey!!, nonce, joinMsg)
 
-            val query = "${makeDnsLabels(Base32Crockford.encode(encrypted))}.${Base32Crockford.encode(nonce)}.${Base32Crockford.encode(clientPublicKey)}.$baseDomain"
+        val query = "${makeDnsLabels(Base32Crockford.encode(encrypted))}.${Base32Crockford.encode(nonce)}.${Base32Crockford.encode(clientPublicKey)}.$baseDomain"
 
-            val (response, _) = dnsHelper.queryTxt(query)
-            if (response.size <= 12) return@withContext false
+        val (response, _) = dnsHelper.queryTxt(query)
+        if (response.size <= 12) throw Exception("Invalid join response size: ${response.size}")
 
-            val respNonce = response.sliceArray(0 until 12)
-            val respCiphertext = response.sliceArray(12 until response.size)
+        val respNonce = response.sliceArray(0 until 12)
+        val respCiphertext = response.sliceArray(12 until response.size)
 
-            val plaintext = Crypto.decryptGcm(clientCipherKey!!, respNonce, respCiphertext)
-            if (plaintext.size < 76) return@withContext false
+        val plaintext = Crypto.decryptGcm(clientCipherKey!!, respNonce, respCiphertext)
+        if (plaintext.size < 76) throw Exception("Invalid join plaintext size: ${plaintext.size}")
 
-            val buffer = ByteBuffer.wrap(plaintext).order(ByteOrder.BIG_ENDIAN)
-            uid = buffer.getLong()
-            channelPublicKey = ByteArray(32).also { buffer.get(it) }
-            channelPrivateKey = ByteArray(32).also { buffer.get(it) }
-            val chGen = buffer.getInt()
+        val buffer = ByteBuffer.wrap(plaintext).order(ByteOrder.BIG_ENDIAN)
+        uid = buffer.getLong()
+        channelPublicKey = ByteArray(32).also { buffer.get(it) }
+        channelPrivateKey = ByteArray(32).also { buffer.get(it) }
+        val chGen = buffer.getInt()
 
-            channelCipherKey = Crypto.ecdh(channelPrivateKey!!, serverPublicKey!!)
+        channelCipherKey = Crypto.ecdh(channelPrivateKey!!, serverPublicKey!!)
 
-            val newGen = if (chGen == 0) 1 else chGen
-            val msgPrivBytes = Crypto.hkdf(channelPrivateKey!!, namePrivateKey!!, "msg $newGen", 32)
-            channelMsgPrivateKey = msgPrivBytes
+        val newGen = if (chGen == 0) 1 else chGen
+        val msgPrivBytes = Crypto.hkdf(channelPrivateKey!!, namePrivateKey!!, "msg $newGen", 32)
+        channelMsgPrivateKey = msgPrivBytes
 
-            if (chGen == 0) {
-                val msgPrivPub = Crypto.derivePublicKey(channelMsgPrivateKey!!)
-                send('O', "+K ${Base32Crockford.encode(msgPrivPub)}")
-            }
-
-            true
-        } catch (e: Exception) {
-            Log.e("ChatClient", "Join failed", e)
-            false
+        if (chGen == 0) {
+            val msgPrivPub = Crypto.derivePublicKey(channelMsgPrivateKey!!)
+            send('O', "+K ${Base32Crockford.encode(msgPrivPub)}")
         }
+
+        true
     }
 
     suspend fun send(msgType: Char, message: String): Long = withContext(Dispatchers.IO) {
