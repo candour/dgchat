@@ -24,6 +24,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _isJoining = MutableStateFlow(false)
     val isJoining: StateFlow<Boolean> = _isJoining.asStateFlow()
 
+    private val _connectionLog = MutableStateFlow("")
+    val connectionLog: StateFlow<String> = _connectionLog.asStateFlow()
+
     private var chatClient: ChatClient? = null
     private var pollJob: Job? = null
 
@@ -51,22 +54,40 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private fun log(message: String) {
+        val timestamp = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())
+        _connectionLog.value += "[$timestamp] $message\n"
+    }
+
     fun connectAndJoin() {
         val channel = prefs.getString("channel", "#test") ?: "#test"
         val nickname = prefs.getString("nickname", "android_user") ?: "android_user"
+        val baseDomain = chatClient?.baseDomain ?: "unknown"
 
         viewModelScope.launch {
             _isJoining.value = true
-            if (chatClient?.connect() == true) {
-                if (chatClient?.join(channel, nickname) == true) {
-                    _isConnected.value = true
-                    pollJob?.cancel()
-                    pollJob = viewModelScope.launch {
-                        chatClient?.pollMessages()
+            _connectionLog.value = ""
+            log("Starting connection to $baseDomain...")
+
+            try {
+                if (chatClient?.connect() == true) {
+                    log("Connected to server. Joining channel $channel as $nickname...")
+                    if (chatClient?.join(channel, nickname) == true) {
+                        log("Successfully joined channel.")
+                        _isConnected.value = true
+                        pollJob?.cancel()
+                        pollJob = viewModelScope.launch {
+                            chatClient?.pollMessages()
+                        }
                     }
+                } else {
+                    log("Connection failed: Unknown error")
                 }
+            } catch (e: Exception) {
+                log("Error: ${e.message}\n${android.util.Log.getStackTraceString(e)}")
+            } finally {
+                _isJoining.value = false
             }
-            _isJoining.value = false
         }
     }
 
