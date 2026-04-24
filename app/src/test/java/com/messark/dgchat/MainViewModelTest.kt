@@ -1,4 +1,4 @@
-package com.example.app
+package com.messark.dgchat
 
 import android.app.Application
 import io.mockk.every

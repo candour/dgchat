@@ -1,4 +1,4 @@
-package com.example.app
+package com.messark.dgchat
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -17,7 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import com.example.app.ui.theme.ExampleAppTheme
+import com.messark.dgchat.ui.theme.DgChatTheme
 
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
@@ -26,7 +26,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            ExampleAppTheme {
+            DgChatTheme {
                 val greetingMessage by viewModel.greetingMessage.collectAsState()
 
                 Scaffold(
