@@ -39,7 +39,7 @@ class ChatClient(
     private var channelCipherKey: ByteArray? = null
 
     private var lastMilli: Long = 0
-    private var lastMessageId: Long = 0
+    var lastMessageId: Long = 0
 
     private val _messages = MutableSharedFlow<ChatMessage>()
     val messages: SharedFlow<ChatMessage> = _messages
@@ -172,11 +172,55 @@ class ChatClient(
         }
     }
 
+    private suspend fun processMessage(id: Long, encrypted: ByteArray, decryptKey: ByteArray): Boolean {
+        val nonce = ByteBuffer.allocate(12).order(ByteOrder.BIG_ENDIAN)
+            .putInt(0)
+            .putLong(id)
+            .array()
+
+        try {
+            val plaintext = Crypto.decryptGcm(decryptKey, nonce, encrypted)
+            if (plaintext.size >= 9) {
+                val buffer = ByteBuffer.wrap(plaintext).order(ByteOrder.BIG_ENDIAN)
+                val ts = buffer.getLong()
+                val msgType = buffer.get().toInt().toChar()
+                val content = plaintext.sliceArray(9 until plaintext.size).toString(Charsets.UTF_8)
+
+                if (id !in seenIds) {
+                    seenIds.add(id)
+                    if (seenIds.size > MAX_SEEN_IDS) {
+                        val first = seenIds.iterator().next()
+                        seenIds.remove(first)
+                    }
+                    lastMessageId = max(lastMessageId, id)
+                    _messages.emit(ChatMessage(id, ts, msgType, content))
+                    return true
+                }
+            }
+        } catch (e: Exception) {
+            // Decrypt failed
+        }
+        return false
+    }
+
+    suspend fun fetchMessage(id: Long): Boolean {
+        val channelPubEncoded = Base32Crockford.encode(channelPublicKey!!)
+        val decryptKey = Crypto.ecdh(channelMsgPrivateKey!!, serverPublicKey!!)
+        val query = "$id.$channelPubEncoded.$baseDomain"
+        technicalLog("DNS Fetch Query: $query")
+        val (message, _) = dnsHelper.queryTxt(query)
+        if (message.isNotEmpty()) {
+            return processMessage(id, message, decryptKey)
+        }
+        return false
+    }
+
     suspend fun pollMessages() = withContext(Dispatchers.IO) {
         val channelPubEncoded = Base32Crockford.encode(channelPublicKey!!)
         val decryptKey = Crypto.ecdh(channelMsgPrivateKey!!, serverPublicKey!!)
 
         var backoff = 1000L
+        var firstPoll = true
 
         while (true) {
             try {
@@ -189,34 +233,30 @@ class ChatClient(
                     val idStr = cname.substringBefore(".")
                     val newId = idStr.toLongOrNull() ?: continue
 
-                    val nonce = ByteBuffer.allocate(12).order(ByteOrder.BIG_ENDIAN)
-                        .putInt(0)
-                        .putLong(newId)
-                        .array()
-
-                    try {
-                        val plaintext = Crypto.decryptGcm(decryptKey, nonce, message)
-                        if (plaintext.size >= 9) {
-                            val buffer = ByteBuffer.wrap(plaintext).order(ByteOrder.BIG_ENDIAN)
-                            val ts = buffer.getLong()
-                            val msgType = buffer.get().toInt().toChar()
-                            val content = plaintext.sliceArray(9 until plaintext.size).toString(Charsets.UTF_8)
-
-                            if (newId !in seenIds) {
-                                seenIds.add(newId)
-                                if (seenIds.size > MAX_SEEN_IDS) {
-                                    val first = seenIds.iterator().next()
-                                    seenIds.remove(first)
-                                }
-                                lastMessageId = max(lastMessageId, newId)
-                                _messages.emit(ChatMessage(newId, ts, msgType, content))
-                            }
+                    if (firstPoll) {
+                        val startId = if (lastMessageId == 0L || (newId - lastMessageId) > 20) {
+                            max(1L, newId - 19)
+                        } else {
+                            lastMessageId + 1
                         }
-                    } catch (e: Exception) {
-                        // Decrypt failed, might be older message
+                        for (id in startId until newId) {
+                            fetchMessage(id)
+                        }
+                        firstPoll = false
+                    } else if (newId > lastMessageId + 1) {
+                        val startId = if ((newId - lastMessageId) > 20) {
+                            newId - 19
+                        } else {
+                            lastMessageId + 1
+                        }
+                        for (id in startId until newId) {
+                            fetchMessage(id)
+                        }
                     }
 
-                    if (newId == lastMessageId) {
+                    val processed = processMessage(newId, message, decryptKey)
+
+                    if (!processed && newId <= lastMessageId) {
                         backoff = min(32000L, backoff + 1000L)
                     } else {
                         backoff = 1000L
