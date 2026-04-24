@@ -123,6 +123,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         _logEntries.value = currentEntries
+
+        // Persist last seen ID
+        msg.id?.let { id ->
+            val channel = prefs.getString("channel", "#test") ?: "#test"
+            val lastId = prefs.getLong("last_id_$channel", 0L)
+            if (id > lastId) {
+                prefs.edit().putLong("last_id_$channel", id).apply()
+            }
+        }
     }
 
     private fun technicalLog(message: String) {
@@ -144,6 +153,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     technicalLog("Connected to server. Joining channel $channel as $nickname...")
                     if (chatClient?.join(channel, nickname) == true) {
                         technicalLog("Successfully joined channel.")
+
+                        // Restore last seen message ID for this channel
+                        val lastId = prefs.getLong("last_id_$channel", 0L)
+                        chatClient?.lastMessageId = lastId
+                        if (lastId > 0) {
+                            technicalLog("Restored last message ID: $lastId")
+                        }
+
                         _isConnected.value = true
                         pollJob?.cancel()
                         pollJob = viewModelScope.launch {
@@ -198,6 +215,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val msgEntry = currentEntries[index] as LogEntry.Message
             currentEntries[index] = msgEntry.copy(chatMessage = msgEntry.chatMessage.copy(id = id))
             _logEntries.value = currentEntries
+
+            // Also persist last seen ID
+            val channel = prefs.getString("channel", "#test") ?: "#test"
+            val lastId = prefs.getLong("last_id_$channel", 0L)
+            if (id > lastId) {
+                prefs.edit().putLong("last_id_$channel", id).apply()
+            }
         }
     }
 
