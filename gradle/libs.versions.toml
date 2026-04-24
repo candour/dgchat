@@ -12,6 +12,8 @@ gamesActivity = "4.0.0"
 activityKtx = "1.10.0"
 lifecycleRuntimeKtx = "2.8.7"
 mockk = "1.13.13"
+minidns = "1.1.1"
+bouncycastle = "1.79"
 
 [libraries]
 mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
@@ -35,6 +37,8 @@ androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
 androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycleRuntimeKtx" }
 androidx-lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "lifecycleRuntimeKtx" }
+minidns-hla = { group = "org.minidns", name = "minidns-hla", version.ref = "minidns" }
+bouncycastle-bcprov = { group = "org.bouncycastle", name = "bcprov-jdk18on", version.ref = "bouncycastle" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
