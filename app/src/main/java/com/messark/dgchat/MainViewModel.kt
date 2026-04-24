@@ -17,16 +17,23 @@ enum class MessageStatus {
 }
 
 sealed class LogEntry {
+    abstract val key: String
+
     data class Message(
         val chatMessage: ChatMessage,
         val status: MessageStatus = MessageStatus.RECEIVED,
         val localId: String = java.util.UUID.randomUUID().toString()
-    ) : LogEntry()
+    ) : LogEntry() {
+        override val key: String = localId
+    }
 
     data class Technical(
         val timestamp: Long,
-        val message: String
-    ) : LogEntry()
+        val message: String,
+        val id: String = java.util.UUID.randomUUID().toString()
+    ) : LogEntry() {
+        override val key: String = id
+    }
 }
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
