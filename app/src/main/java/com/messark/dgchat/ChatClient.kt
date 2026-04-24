@@ -13,6 +13,7 @@ import kotlin.math.max
 import kotlin.math.min
 
 data class ChatMessage(
+    val id: Long? = null,
     val timestamp: Long,
     val type: Char,
     val content: String,
@@ -43,14 +44,26 @@ class ChatClient(
     private val _messages = MutableSharedFlow<ChatMessage>()
     val messages: SharedFlow<ChatMessage> = _messages
 
+    private val _technicalLogs = MutableSharedFlow<String>()
+    val technicalLogs: SharedFlow<String> = _technicalLogs
+
     private val seenIds = LinkedHashSet<Long>()
     private val MAX_SEEN_IDS = 1000
 
+    private suspend fun technicalLog(message: String) {
+        _technicalLogs.emit(message)
+    }
+
     suspend fun connect(): Boolean = withContext(Dispatchers.IO) {
+        technicalLog("DNS Query TXT: $baseDomain")
         val (response, _) = dnsHelper.queryTxt(baseDomain)
-        if (response.isEmpty()) throw Exception("Empty TXT response from $baseDomain")
+        if (response.isEmpty()) {
+            technicalLog("DNS Response: Empty")
+            throw Exception("Empty TXT response from $baseDomain")
+        }
 
         val responseStr = response.toString(Charsets.UTF_8)
+        technicalLog("DNS Response: $responseStr")
         val parts = responseStr.split(" ")
         val pubKeyEncoded = parts[0]
         serverPublicKey = Base32Crockford.decode(pubKeyEncoded)
@@ -85,7 +98,9 @@ class ChatClient(
 
         val query = "${makeDnsLabels(Base32Crockford.encode(encrypted))}.${Base32Crockford.encode(nonce)}.${Base32Crockford.encode(clientPublicKey)}.$baseDomain"
 
+        technicalLog("DNS Join Query: $query")
         val (response, _) = dnsHelper.queryTxt(query)
+        technicalLog("DNS Join Response size: ${response.size}")
         if (response.size <= 12) throw Exception("Invalid join response size: ${response.size}")
 
         val respNonce = response.sliceArray(0 until 12)
@@ -140,10 +155,15 @@ class ChatClient(
 
             val query = "${makeDnsLabels(Base32Crockford.encode(encryptedMessage))}.${Base32Crockford.encode(nonce)}.${Base32Crockford.encode(encryptedAuth)}.$baseDomain"
 
+            technicalLog("DNS Send Query: $query")
             val (_, cname) = dnsHelper.queryTxt(query)
-            if (cname == null) return@withContext 0L
+            if (cname == null) {
+                technicalLog("DNS Send Response: No CNAME")
+                return@withContext 0L
+            }
 
             val idStr = cname.substringBefore(".")
+            technicalLog("DNS Send Response CNAME: $cname")
             val id = idStr.toLongOrNull() ?: 0L
             id
         } catch (e: Exception) {
@@ -161,9 +181,11 @@ class ChatClient(
         while (true) {
             try {
                 val query = "$channelPubEncoded.$baseDomain"
+                technicalLog("DNS Poll Query: $query")
                 val (message, cname) = dnsHelper.queryTxt(query)
 
                 if (message.isNotEmpty() && cname != null) {
+                    technicalLog("DNS Poll Response CNAME: $cname")
                     val idStr = cname.substringBefore(".")
                     val newId = idStr.toLongOrNull() ?: continue
 
@@ -187,7 +209,7 @@ class ChatClient(
                                     seenIds.remove(first)
                                 }
                                 lastMessageId = max(lastMessageId, newId)
-                                _messages.emit(ChatMessage(ts, msgType, content))
+                                _messages.emit(ChatMessage(newId, ts, msgType, content))
                             }
                         }
                     } catch (e: Exception) {

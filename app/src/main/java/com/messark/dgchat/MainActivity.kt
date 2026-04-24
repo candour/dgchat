@@ -5,13 +5,13 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Settings
@@ -31,11 +31,22 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             DgChatTheme {
-                val messages by viewModel.messages.collectAsState()
+                val logEntries by viewModel.logEntries.collectAsState()
                 val isConnected by viewModel.isConnected.collectAsState()
                 val isJoining by viewModel.isJoining.collectAsState()
-                val connectionLog by viewModel.connectionLog.collectAsState()
+                val showTechnicalLogs by viewModel.showTechnicalLogs.collectAsState()
                 var showSettings by remember { mutableStateOf(false) }
+
+                val filteredEntries = remember(logEntries, showTechnicalLogs) {
+                    if (showTechnicalLogs) logEntries else logEntries.filter { it is LogEntry.Message }
+                }
+
+                val listState = rememberLazyListState()
+                LaunchedEffect(filteredEntries.size) {
+                    if (filteredEntries.isNotEmpty()) {
+                        listState.animateScrollToItem(filteredEntries.size - 1)
+                    }
+                }
 
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
@@ -56,13 +67,11 @@ class MainActivity : ComponentActivity() {
                             .fillMaxSize()
                     ) {
                         if (!isConnected) {
-                            Column(
+                            Box(
                                 modifier = Modifier
-                                    .weight(1f)
                                     .fillMaxWidth()
                                     .padding(16.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
+                                contentAlignment = Alignment.Center
                             ) {
                                 if (isJoining) {
                                     CircularProgressIndicator()
@@ -71,31 +80,23 @@ class MainActivity : ComponentActivity() {
                                         Text("Connect")
                                     }
                                 }
-
-                                if (connectionLog.isNotBlank()) {
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    SelectionContainer {
-                                        Text(
-                                            text = connectionLog,
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .verticalScroll(rememberScrollState()),
-                                            style = MaterialTheme.typography.bodySmall
-                                        )
-                                    }
-                                }
                             }
-                        } else {
-                            LazyColumn(
-                                modifier = Modifier.weight(1f).fillMaxWidth(),
-                                contentPadding = PaddingValues(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                items(messages) { message ->
-                                    MessageItem(message)
-                                }
-                            }
+                        }
 
+                        LazyColumn(
+                            state = listState,
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(filteredEntries) { entry ->
+                                LogEntryItem(entry)
+                            }
+                        }
+
+                        if (isConnected) {
                             ChatInput(onSendMessage = { viewModel.sendMessage(it) })
                         }
                     }
@@ -113,16 +114,74 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun MessageItem(message: ChatMessage) {
+fun LogEntryItem(entry: LogEntry) {
+    when (entry) {
+        is LogEntry.Message -> MessageItem(entry)
+        is LogEntry.Technical -> TechnicalLogItem(entry)
+    }
+}
+
+@Composable
+fun MessageItem(entry: LogEntry.Message) {
+    val message = entry.chatMessage
+    val statusText = when (entry.status) {
+        MessageStatus.SENDING -> " (sending)"
+        MessageStatus.FAILED -> " (failed)"
+        MessageStatus.RECEIVED -> ""
+    }
+
     Card(
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
+        colors = if (message.isMe) CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+        else CardDefaults.cardColors()
     ) {
         Column(modifier = Modifier.padding(8.dp)) {
-            Text(
-                text = "${message.type} ${java.text.SimpleDateFormat("HH:mm:ss").format(java.util.Date(message.timestamp * 1000))}",
-                style = MaterialTheme.typography.labelSmall
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "${message.type} ${
+                        java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
+                            .format(java.util.Date(message.timestamp * 1000))
+                    }$statusText",
+                    style = MaterialTheme.typography.labelSmall
+                )
+                if (message.id != null) {
+                    Text(
+                        text = "ID: ${message.id}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                }
+            }
+            SelectionContainer {
+                Text(text = message.content)
+            }
+        }
+    }
+}
+
+@Composable
+fun TechnicalLogItem(entry: LogEntry.Technical) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                shape = MaterialTheme.shapes.small
             )
-            Text(text = message.content)
+            .padding(8.dp)
+    ) {
+        SelectionContainer {
+            Text(
+                text = "[${
+                    java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
+                        .format(java.util.Date(entry.timestamp * 1000))
+                }] ${entry.message}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -157,10 +216,11 @@ fun ChatInput(onSendMessage: (String) -> Unit) {
 @Composable
 fun SettingsDialog(onDismiss: () -> Unit, viewModel: MainViewModel) {
     val currentSettings = viewModel.getSettings()
-    var baseDomain by remember { mutableStateOf(currentSettings["base_domain"] ?: "") }
-    var dnsServer by remember { mutableStateOf(currentSettings["dns_server"] ?: "") }
-    var channel by remember { mutableStateOf(currentSettings["channel"] ?: "") }
-    var nickname by remember { mutableStateOf(currentSettings["nickname"] ?: "") }
+    var baseDomain by remember { mutableStateOf(currentSettings["base_domain"] as String) }
+    var dnsServer by remember { mutableStateOf(currentSettings["dns_server"] as String) }
+    var channel by remember { mutableStateOf(currentSettings["channel"] as String) }
+    var nickname by remember { mutableStateOf(currentSettings["nickname"] as String) }
+    var showTechLogs by remember { mutableStateOf(currentSettings["show_tech_logs"] as Boolean) }
     var dnsTestResult by remember { mutableStateOf<Boolean?>(null) }
 
     AlertDialog(
@@ -172,6 +232,15 @@ fun SettingsDialog(onDismiss: () -> Unit, viewModel: MainViewModel) {
                 TextField(value = dnsServer, onValueChange = { dnsServer = it }, label = { Text("DNS Server") })
                 TextField(value = channel, onValueChange = { channel = it }, label = { Text("Channel") })
                 TextField(value = nickname, onValueChange = { nickname = it }, label = { Text("Nickname") })
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Show Technical Logs")
+                    Switch(checked = showTechLogs, onCheckedChange = { showTechLogs = it })
+                }
 
                 Button(onClick = {
                     viewModel.testDns(baseDomain, dnsServer) { success ->
@@ -187,7 +256,7 @@ fun SettingsDialog(onDismiss: () -> Unit, viewModel: MainViewModel) {
         },
         confirmButton = {
             Button(onClick = {
-                viewModel.updateSettings(baseDomain, dnsServer, channel, nickname)
+                viewModel.updateSettings(baseDomain, dnsServer, channel, nickname, showTechLogs)
                 onDismiss()
             }) {
                 Text("Save")
