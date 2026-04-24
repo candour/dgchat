@@ -41,10 +41,16 @@ class MainActivity : ComponentActivity() {
                     if (showTechnicalLogs) logEntries else logEntries.filter { it is LogEntry.Message }
                 }
 
+                val reversedEntries = remember(filteredEntries) {
+                    filteredEntries.asReversed()
+                }
+
                 val listState = rememberLazyListState()
-                LaunchedEffect(filteredEntries.size) {
-                    if (filteredEntries.isNotEmpty()) {
-                        listState.animateScrollToItem(filteredEntries.size - 1)
+                LaunchedEffect(reversedEntries.size) {
+                    if (reversedEntries.isNotEmpty()) {
+                        if (listState.firstVisibleItemIndex <= 1) {
+                            listState.animateScrollToItem(0)
+                        }
                     }
                 }
 
@@ -64,6 +70,7 @@ class MainActivity : ComponentActivity() {
                     Column(
                         modifier = Modifier
                             .padding(innerPadding)
+                            .imePadding()
                             .fillMaxSize()
                     ) {
                         if (!isConnected) {
@@ -89,9 +96,10 @@ class MainActivity : ComponentActivity() {
                                 .weight(1f)
                                 .fillMaxWidth(),
                             contentPadding = PaddingValues(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            reverseLayout = true
                         ) {
-                            items(filteredEntries) { entry ->
+                            items(reversedEntries, key = { it.key }) { entry ->
                                 LogEntryItem(entry)
                             }
                         }
