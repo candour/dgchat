@@ -51,6 +51,8 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation(libs.minidns.hla)
+    implementation(libs.bouncycastle.bcprov)
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
     androidTestImplementation(libs.androidx.junit)
