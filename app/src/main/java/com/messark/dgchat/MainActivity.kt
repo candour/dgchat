@@ -164,7 +164,7 @@ fun MessageItem(entry: LogEntry.Message) {
                 }
             }
             SelectionContainer {
-                Text(text = message.content)
+                Text(text = AnsiParser.parseAnsi(message.content))
             }
         }
     }

@@ -1,0 +1,74 @@
+package com.messark.dgchat
+
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
+import org.junit.Assert.assertEquals
+import org.junit.Test
+
+class AnsiParserTest {
+
+    @Test
+    fun testPlainText() {
+        val input = "Hello World"
+        val result = AnsiParser.parseAnsi(input)
+        assertEquals("Hello World", result.text)
+        assertEquals(0, result.spanStyles.size)
+    }
+
+    @Test
+    fun testBasicColors() {
+        val input = "\u001b[31mRed Text\u001b[0m"
+        val result = AnsiParser.parseAnsi(input)
+        assertEquals("Red Text", result.text)
+        assertEquals(1, result.spanStyles.size)
+        // Red (Red 500)
+        assertEquals(Color(0xFFF44336), result.spanStyles[0].item.color)
+    }
+
+    @Test
+    fun testBoldItalicUnderline() {
+        val input = "\u001b[1mBold\u001b[0m \u001b[3mItalic\u001b[0m \u001b[4mUnderline\u001b[0m"
+        val result = AnsiParser.parseAnsi(input)
+        assertEquals("Bold Italic Underline", result.text)
+
+        // Find styles for each part
+        val boldPart = result.spanStyles.find { result.text.substring(it.start, it.end) == "Bold" }
+        val italicPart = result.spanStyles.find { result.text.substring(it.start, it.end) == "Italic" }
+        val underlinePart = result.spanStyles.find { result.text.substring(it.start, it.end) == "Underline" }
+
+        assertEquals(FontWeight.Bold, boldPart?.item?.fontWeight)
+        assertEquals(FontStyle.Italic, italicPart?.item?.fontStyle)
+        assertEquals(TextDecoration.Underline, underlinePart?.item?.textDecoration)
+    }
+
+    @Test
+    fun test256Colors() {
+        val input = "\u001b[38;5;208mOrange\u001b[0m"
+        val result = AnsiParser.parseAnsi(input)
+        assertEquals("Orange", result.text)
+        // 208 is Orange-ish. Let's see if it has a color.
+        val orangePart = result.spanStyles.find { result.text.substring(it.start, it.end) == "Orange" }
+        assertEquals(true, orangePart?.item?.color != Color.Unspecified)
+    }
+
+    @Test
+    fun testRGBColors() {
+        val input = "\u001b[38;2;100;150;200mRGB\u001b[0m"
+        val result = AnsiParser.parseAnsi(input)
+        assertEquals("RGB", result.text)
+        val rgbPart = result.spanStyles.find { result.text.substring(it.start, it.end) == "RGB" }
+        assertEquals(Color(100f / 255f, 150f / 255f, 200f / 255f), rgbPart?.item?.color)
+    }
+
+    @Test
+    fun testBackgroundColors() {
+        val input = "\u001b[42mGreen BG\u001b[0m"
+        val result = AnsiParser.parseAnsi(input)
+        assertEquals("Green BG", result.text)
+        val bgPart = result.spanStyles.find { result.text.substring(it.start, it.end) == "Green BG" }
+        // Green (Green 500)
+        assertEquals(Color(0xFF4CAF50), bgPart?.item?.background)
+    }
+}
