@@ -16,8 +16,10 @@ import java.nio.ByteBuffer
 
 object Crypto {
     init {
-        Security.removeProvider("BC")
-        Security.addProvider(BouncyCastleProvider())
+        // Ensure Bouncy Castle is available for X25519 and PBKDF2
+        if (Security.getProvider("BC") == null) {
+            Security.addProvider(BouncyCastleProvider())
+        }
     }
 
     fun generateKeyPair(): Pair<ByteArray, ByteArray> {
@@ -41,7 +43,7 @@ object Crypto {
     }
 
     fun encryptGcm(key: ByteArray, nonce: ByteArray, plaintext: ByteArray): ByteArray {
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding", "BC")
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         val secretKey = SecretKeySpec(key, "AES")
         val spec = GCMParameterSpec(128, nonce)
         cipher.init(Cipher.ENCRYPT_MODE, secretKey, spec)
@@ -49,7 +51,7 @@ object Crypto {
     }
 
     fun decryptGcm(key: ByteArray, nonce: ByteArray, ciphertext: ByteArray): ByteArray {
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding", "BC")
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         val secretKey = SecretKeySpec(key, "AES")
         val spec = GCMParameterSpec(128, nonce)
         cipher.init(Cipher.DECRYPT_MODE, secretKey, spec)

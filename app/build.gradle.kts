@@ -52,6 +52,8 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.minidns.hla)
+    implementation(libs.minidns.client)
+    implementation(libs.minidns.core)
     implementation(libs.bouncycastle.bcprov)
     testImplementation(libs.junit)
     testImplementation(libs.mockk)

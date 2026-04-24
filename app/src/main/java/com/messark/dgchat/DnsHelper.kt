@@ -32,36 +32,31 @@ class DnsHelper(private val dnsServer: String?) {
         }
 
         val txtRecords = response.answerSection.filter { it.type == Record.TYPE.TXT }
-        val combined = txtRecords.flatMap { record ->
-            val txt = record.payload as TXT
-            txt.characterStrings.flatMap { decodeTxtEscapes(it).toList() }
-        }.toByteArray()
+        
+        val allBytes = mutableListOf<Byte>()
+        for (rec in txtRecords) {
+            val payloadBytes = rec.payload.toByteArray()
+            var i = 0
+            while (i < payloadBytes.size) {
+                val len = payloadBytes[i].toInt() and 0xFF
+                i++
+                if (i + len <= payloadBytes.size) {
+                    for (j in 0 until len) {
+                        allBytes.add(payloadBytes[i + j])
+                    }
+                    i += len
+                } else {
+                    break
+                }
+            }
+        }
+        val combined = allBytes.toByteArray()
 
         val cname = response.answerSection.find { it.type == Record.TYPE.CNAME }?.let {
-            (it.payload as CNAME).target.toString()
+            val cnameRecord = it.payload as CNAME
+            cnameRecord.target.toString()
         }
 
         return combined to cname
-    }
-
-    private fun decodeTxtEscapes(s: String): ByteArray {
-        val result = mutableListOf<Byte>()
-        var i = 0
-        while (i < s.length) {
-            if (s[i] == '\\' && i + 1 < s.length) {
-                if (i + 3 < s.length && s[i+1].isDigit() && s[i+2].isDigit() && s[i+3].isDigit()) {
-                    val value = s.substring(i + 1, i + 4).toInt()
-                    result.add(value.toByte())
-                    i += 4
-                } else {
-                    result.add(s[i+1].code.toByte())
-                    i += 2
-                }
-            } else {
-                result.add(s[i].code.toByte())
-                i++
-            }
-        }
-        return result.toByteArray()
     }
 }

@@ -1,5 +1,5 @@
 [versions]
-agp = "8.7.3"
+agp = "8.13.2"
 kotlin = "2.1.0"
 composeBom = "2024.12.01"
 coreKtx = "1.15.0"
@@ -38,6 +38,8 @@ androidx-material3 = { group = "androidx.compose.material3", name = "material3" 
 androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycleRuntimeKtx" }
 androidx-lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "lifecycleRuntimeKtx" }
 minidns-hla = { group = "org.minidns", name = "minidns-hla", version.ref = "minidns" }
+minidns-client = { group = "org.minidns", name = "minidns-client", version.ref = "minidns" }
+minidns-core = { group = "org.minidns", name = "minidns-core", version.ref = "minidns" }
 bouncycastle-bcprov = { group = "org.bouncycastle", name = "bcprov-jdk18on", version.ref = "bouncycastle" }
 
 [plugins]

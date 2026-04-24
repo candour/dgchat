@@ -4,11 +4,13 @@ import android.app.Application
 import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val prefs = application.getSharedPreferences("dgchat_prefs", Context.MODE_PRIVATE)
@@ -102,10 +104,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     )
 
     fun testDns(baseDomain: String, dnsServer: String, callback: (Boolean) -> Unit) {
-        viewModelScope.launch {
-            val helper = DnsHelper(dnsServer)
-            val (resp, _) = helper.queryTxt(baseDomain)
-            callback(resp.isNotEmpty())
+        viewModelScope.launch(Dispatchers.IO) {
+            val success = try {
+                if (baseDomain.isBlank()) {
+                    false
+                } else {
+                    val helper = DnsHelper(dnsServer)
+                    val (resp, _) = helper.queryTxt(baseDomain)
+                    resp.isNotEmpty()
+                }
+            } catch (e: Exception) {
+                false
+            }
+            withContext(Dispatchers.Main) {
+                callback(success)
+            }
         }
     }
 }
