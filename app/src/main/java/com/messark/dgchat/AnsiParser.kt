@@ -1,6 +1,7 @@
 package com.messark.dgchat
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.font.FontStyle
@@ -71,14 +72,16 @@ object AnsiParser {
                         38 -> { // Extended foreground
                             val (color, consumed) = parseExtendedColor(params, i + 1)
                             if (color != null) currentSpanStyle = currentSpanStyle.copy(color = color)
-                            i += consumed
+                            i += consumed + 1
+                            continue
                         }
                         39 -> currentSpanStyle = currentSpanStyle.copy(color = Color.Unspecified) // Default fg
                         in 40..47 -> currentSpanStyle = currentSpanStyle.copy(background = basicColors[code - 40])
                         48 -> { // Extended background
                             val (color, consumed) = parseExtendedColor(params, i + 1)
                             if (color != null) currentSpanStyle = currentSpanStyle.copy(background = color)
-                            i += consumed
+                            i += consumed + 1
+                            continue
                         }
                         49 -> currentSpanStyle = currentSpanStyle.copy(background = Color.Unspecified) // Default bg
                         in 90..97 -> currentSpanStyle = currentSpanStyle.copy(color = brightColors[code - 90])
@@ -202,15 +205,17 @@ object AnsiParser {
     }
 
     private fun getColorCodes(color: Color, isForeground: Boolean): List<Int> {
+        if (color == Color.Unspecified) return emptyList()
         val codes = mutableListOf<Int>()
         val base = if (isForeground) 30 else 40
         val brightBase = if (isForeground) 90 else 100
 
-        val basicIndex = basicColors.indexOf(color)
+        val colorArgb = color.toArgb()
+        val basicIndex = basicColors.indexOfFirst { it.toArgb() == colorArgb }
         if (basicIndex != -1) {
             codes.add(base + basicIndex)
         } else {
-            val brightIndex = brightColors.indexOf(color)
+            val brightIndex = brightColors.indexOfFirst { it.toArgb() == colorArgb }
             if (brightIndex != -1) {
                 codes.add(brightBase + brightIndex)
             } else {
