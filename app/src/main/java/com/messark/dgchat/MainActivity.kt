@@ -320,27 +320,15 @@ fun ChatInput(onSendMessage: (String) -> Unit) {
                     val selectionChanged = newValue.selection != textFieldValue.selection
                     val textChanged = newValue.text != textFieldValue.text
 
-                    if (textChanged && newValue.text.length > textFieldValue.text.length && textFieldValue.selection.collapsed) {
-                        // Text was added
-                        val addedChars = newValue.text.length - textFieldValue.text.length
-                        val start = textFieldValue.selection.start
-                        val end = start + addedChars
-
-                        val builder = AnnotatedString.Builder(newValue.annotatedString)
-                        // Clear existing styles in the newly added range first to avoid inheritance
-                        builder.addStyle(SpanStyle(
-                            fontWeight = FontWeight.Normal,
-                            fontStyle = FontStyle.Normal,
-                            textDecoration = TextDecoration.None,
-                            color = Color.Unspecified
-                        ), start, end)
-
-                        activeStyles.forEach { style ->
-                            builder.addStyle(style, start, end)
-                        }
-                        textFieldValue = newValue.copy(annotatedString = builder.toAnnotatedString())
+                    if (textChanged) {
+                        val updatedAnnotatedString = RichTextEditorUtils.updateAnnotatedString(
+                            oldValue = textFieldValue,
+                            newValue = newValue,
+                            activeStyles = activeStyles
+                        )
+                        textFieldValue = newValue.copy(annotatedString = updatedAnnotatedString)
                     } else {
-                        textFieldValue = newValue
+                        textFieldValue = newValue.copy(annotatedString = textFieldValue.annotatedString)
                     }
 
                     if (selectionChanged && textFieldValue.selection.collapsed) {
