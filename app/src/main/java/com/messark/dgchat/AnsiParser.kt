@@ -62,8 +62,11 @@ object AnsiParser {
                     when (code) {
                         0 -> currentSpanStyle = SpanStyle() // Reset
                         1 -> currentSpanStyle = currentSpanStyle.copy(fontWeight = FontWeight.Bold)
+                        22 -> currentSpanStyle = currentSpanStyle.copy(fontWeight = null)
                         3 -> currentSpanStyle = currentSpanStyle.copy(fontStyle = FontStyle.Italic)
+                        23 -> currentSpanStyle = currentSpanStyle.copy(fontStyle = null)
                         4 -> currentSpanStyle = currentSpanStyle.copy(textDecoration = TextDecoration.Underline)
+                        24 -> currentSpanStyle = currentSpanStyle.copy(textDecoration = null)
                         in 30..37 -> currentSpanStyle = currentSpanStyle.copy(color = basicColors[code - 30])
                         38 -> { // Extended foreground
                             val (color, consumed) = parseExtendedColor(params, i + 1)
@@ -253,6 +256,8 @@ object AnsiParser {
         val resetStr = if (target == AnsiState()) "\u001b[m"
         else "\u001b[${resetCodes.joinToString(";")}m"
 
-        return if (incrementalStr.length <= resetStr.length) incrementalStr else resetStr
+        // Prefer incremental if it's shorter OR if it's a reset to AnsiState() and they are same length
+        // to avoid potential issues with some parsers and empty reset codes.
+        return if (incrementalStr.length < resetStr.length) incrementalStr else resetStr
     }
 }
