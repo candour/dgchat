@@ -234,6 +234,13 @@ fun ChatInput(onSendMessage: (String) -> Unit) {
         }
     }
 
+    val boldStyle = remember { SpanStyle(fontWeight = FontWeight.Bold) }
+    val italicStyle = remember { SpanStyle(fontStyle = FontStyle.Italic) }
+    val underlineStyle = remember { SpanStyle(textDecoration = TextDecoration.Underline) }
+    val redStyle = remember { SpanStyle(color = AnsiParser.basicColors[1]) }
+    val greenStyle = remember { SpanStyle(color = AnsiParser.basicColors[2]) }
+    val blueStyle = remember { SpanStyle(color = AnsiParser.basicColors[4]) }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -244,95 +251,61 @@ fun ChatInput(onSendMessage: (String) -> Unit) {
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            val boldStyle = SpanStyle(fontWeight = FontWeight.Bold)
-            val italicStyle = SpanStyle(fontStyle = FontStyle.Italic)
-            val underlineStyle = SpanStyle(textDecoration = TextDecoration.Underline)
-            val redStyle = SpanStyle(color = AnsiParser.basicColors[1]) // Red
-            val greenStyle = SpanStyle(color = AnsiParser.basicColors[2]) // Green
-            val blueStyle = SpanStyle(color = AnsiParser.basicColors[4]) // Blue
-
             StyleToggleButton(
                 label = "B",
-                isActive = activeStyles.contains(boldStyle) || (textFieldValue.selection.collapsed && textFieldValue.annotatedString.spanStyles.any { it.start <= textFieldValue.selection.start && it.end > textFieldValue.selection.start && it.item.fontWeight == FontWeight.Bold }),
+                isActive = activeStyles.any { it.fontWeight == FontWeight.Bold },
                 onClick = {
-                    if (textFieldValue.selection.collapsed) {
-                        activeStyles = if (activeStyles.contains(boldStyle)) activeStyles - boldStyle else activeStyles + boldStyle
+                    activeStyles = if (activeStyles.any { it.fontWeight == FontWeight.Bold }) {
+                        activeStyles.filter { it.fontWeight == null }.toSet()
                     } else {
-                        textFieldValue = textFieldValue.copy(
-                            annotatedString = RichTextEditorUtils.toggleStyle(
-                                textFieldValue.annotatedString,
-                                textFieldValue.selection.start,
-                                textFieldValue.selection.end,
-                                boldStyle
-                            )
-                        )
+                        activeStyles + boldStyle
                     }
                 }
             )
             StyleToggleButton(
                 label = "I",
-                isActive = activeStyles.contains(italicStyle) || (textFieldValue.selection.collapsed && textFieldValue.annotatedString.spanStyles.any { it.start <= textFieldValue.selection.start && it.end > textFieldValue.selection.start && it.item.fontStyle == FontStyle.Italic }),
+                isActive = activeStyles.any { it.fontStyle == FontStyle.Italic },
                 onClick = {
-                    if (textFieldValue.selection.collapsed) {
-                        activeStyles = if (activeStyles.contains(italicStyle)) activeStyles - italicStyle else activeStyles + italicStyle
+                    activeStyles = if (activeStyles.any { it.fontStyle == FontStyle.Italic }) {
+                        activeStyles.filter { it.fontStyle == null }.toSet()
                     } else {
-                        textFieldValue = textFieldValue.copy(
-                            annotatedString = RichTextEditorUtils.toggleStyle(
-                                textFieldValue.annotatedString,
-                                textFieldValue.selection.start,
-                                textFieldValue.selection.end,
-                                italicStyle
-                            )
-                        )
+                        activeStyles + italicStyle
                     }
                 }
             )
             StyleToggleButton(
                 label = "U",
-                isActive = activeStyles.contains(underlineStyle) || (textFieldValue.selection.collapsed && textFieldValue.annotatedString.spanStyles.any { it.start <= textFieldValue.selection.start && it.end > textFieldValue.selection.start && it.item.textDecoration == TextDecoration.Underline }),
+                isActive = activeStyles.any { it.textDecoration == TextDecoration.Underline },
                 onClick = {
-                    if (textFieldValue.selection.collapsed) {
-                        activeStyles = if (activeStyles.contains(underlineStyle)) activeStyles - underlineStyle else activeStyles + underlineStyle
+                    activeStyles = if (activeStyles.any { it.textDecoration == TextDecoration.Underline }) {
+                        activeStyles.filter { it.textDecoration == null }.toSet()
                     } else {
-                        textFieldValue = textFieldValue.copy(
-                            annotatedString = RichTextEditorUtils.toggleStyle(
-                                textFieldValue.annotatedString,
-                                textFieldValue.selection.start,
-                                textFieldValue.selection.end,
-                                underlineStyle
-                            )
-                        )
+                        activeStyles + underlineStyle
                     }
                 }
             )
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            ColorToggleButton(color = AnsiParser.basicColors[1], isActive = activeStyles.any { it.color == AnsiParser.basicColors[1] }, onClick = {
-                if (textFieldValue.selection.collapsed) {
-                    activeStyles = if (activeStyles.any { it.color == redStyle.color }) activeStyles.filter { it.color == Color.Unspecified }.toSet() else activeStyles.filter { it.color == Color.Unspecified }.toSet() + redStyle
+            ColorToggleButton(color = AnsiParser.basicColors[1], isActive = activeStyles.any { it.color == redStyle.color }, onClick = {
+                activeStyles = if (activeStyles.any { it.color == redStyle.color }) {
+                    activeStyles.filter { it.color == Color.Unspecified }.toSet()
                 } else {
-                    textFieldValue = textFieldValue.copy(
-                        annotatedString = RichTextEditorUtils.toggleStyle(textFieldValue.annotatedString, textFieldValue.selection.start, textFieldValue.selection.end, redStyle)
-                    )
+                    activeStyles.filter { it.color == Color.Unspecified }.toSet() + redStyle
                 }
             })
-            ColorToggleButton(color = AnsiParser.basicColors[2], isActive = activeStyles.any { it.color == AnsiParser.basicColors[2] }, onClick = {
-                if (textFieldValue.selection.collapsed) {
-                    activeStyles = if (activeStyles.any { it.color == greenStyle.color }) activeStyles.filter { it.color == Color.Unspecified }.toSet() else activeStyles.filter { it.color == Color.Unspecified }.toSet() + greenStyle
+            ColorToggleButton(color = AnsiParser.basicColors[2], isActive = activeStyles.any { it.color == greenStyle.color }, onClick = {
+                activeStyles = if (activeStyles.any { it.color == greenStyle.color }) {
+                    activeStyles.filter { it.color == Color.Unspecified }.toSet()
                 } else {
-                    textFieldValue = textFieldValue.copy(
-                        annotatedString = RichTextEditorUtils.toggleStyle(textFieldValue.annotatedString, textFieldValue.selection.start, textFieldValue.selection.end, greenStyle)
-                    )
+                    activeStyles.filter { it.color == Color.Unspecified }.toSet() + greenStyle
                 }
             })
-            ColorToggleButton(color = AnsiParser.basicColors[4], isActive = activeStyles.any { it.color == AnsiParser.basicColors[4] }, onClick = {
-                if (textFieldValue.selection.collapsed) {
-                    activeStyles = if (activeStyles.any { it.color == blueStyle.color }) activeStyles.filter { it.color == Color.Unspecified }.toSet() else activeStyles.filter { it.color == Color.Unspecified }.toSet() + blueStyle
+            ColorToggleButton(color = AnsiParser.basicColors[4], isActive = activeStyles.any { it.color == blueStyle.color }, onClick = {
+                activeStyles = if (activeStyles.any { it.color == blueStyle.color }) {
+                    activeStyles.filter { it.color == Color.Unspecified }.toSet()
                 } else {
-                    textFieldValue = textFieldValue.copy(
-                        annotatedString = RichTextEditorUtils.toggleStyle(textFieldValue.annotatedString, textFieldValue.selection.start, textFieldValue.selection.end, blueStyle)
-                    )
+                    activeStyles.filter { it.color == Color.Unspecified }.toSet() + blueStyle
                 }
             })
         }
@@ -344,13 +317,24 @@ fun ChatInput(onSendMessage: (String) -> Unit) {
             TextField(
                 value = textFieldValue,
                 onValueChange = { newValue ->
-                    if (newValue.text.length > textFieldValue.text.length && textFieldValue.selection.collapsed) {
+                    val selectionChanged = newValue.selection != textFieldValue.selection
+                    val textChanged = newValue.text != textFieldValue.text
+
+                    if (textChanged && newValue.text.length > textFieldValue.text.length && textFieldValue.selection.collapsed) {
                         // Text was added
                         val addedChars = newValue.text.length - textFieldValue.text.length
                         val start = textFieldValue.selection.start
                         val end = start + addedChars
 
                         val builder = AnnotatedString.Builder(newValue.annotatedString)
+                        // Clear existing styles in the newly added range first to avoid inheritance
+                        builder.addStyle(SpanStyle(
+                            fontWeight = FontWeight.Normal,
+                            fontStyle = FontStyle.Normal,
+                            textDecoration = TextDecoration.None,
+                            color = Color.Unspecified
+                        ), start, end)
+
                         activeStyles.forEach { style ->
                             builder.addStyle(style, start, end)
                         }
@@ -359,8 +343,39 @@ fun ChatInput(onSendMessage: (String) -> Unit) {
                         textFieldValue = newValue
                     }
 
-                    // If selection changed, we might want to update activeStyles,
-                    // but for simplicity let's just keep it as is for now or reset if moved.
+                    if (selectionChanged && textFieldValue.selection.collapsed) {
+                        val pos = textFieldValue.selection.start
+                        if (pos > 0 && pos <= textFieldValue.text.length) {
+                            // Extract styles from the character BEFORE the cursor
+                            val stylesAtPos = textFieldValue.annotatedString.spanStyles
+                                .filter { it.start < pos && it.end >= pos }
+                                .map { it.item }
+
+                            val newActiveStyles = mutableSetOf<SpanStyle>()
+
+                            // Check for Bold
+                            if (stylesAtPos.any { it.fontWeight == FontWeight.Bold }) {
+                                newActiveStyles.add(boldStyle)
+                            }
+                            // Check for Italic
+                            if (stylesAtPos.any { it.fontStyle == FontStyle.Italic }) {
+                                newActiveStyles.add(italicStyle)
+                            }
+                            // Check for Underline
+                            if (stylesAtPos.any { it.textDecoration == TextDecoration.Underline }) {
+                                newActiveStyles.add(underlineStyle)
+                            }
+                            // Check for Colors
+                            val colorStyle = stylesAtPos.find { it.color != Color.Unspecified }
+                            if (colorStyle != null) {
+                                newActiveStyles.add(SpanStyle(color = colorStyle.color))
+                            }
+
+                            activeStyles = newActiveStyles
+                        } else if (pos == 0) {
+                            activeStyles = emptySet()
+                        }
+                    }
                 },
                 modifier = Modifier.weight(1f),
                 placeholder = { Text("Message") }
