@@ -225,19 +225,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun updateSettings(baseDomain: String, dnsServer: String, channel: String, nickname: String, showTechLogs: Boolean) {
+    fun updateSettings(baseDomain: String, dnsServer: String, channel: String, nickname: String, privKeyHex: String, showTechLogs: Boolean) {
         prefs.edit()
             .putString("base_domain", baseDomain)
             .putString("dns_server", dnsServer)
             .putString("channel", channel)
             .putString("nickname", nickname)
+            .putString("priv_key", privKeyHex)
             .putBoolean("show_tech_logs", showTechLogs)
             .apply()
 
         _showTechnicalLogs.value = showTechLogs
 
         // Re-init client
-        val privKeyHex = prefs.getString("priv_key", null)!!
         val priv = Base32Crockford.decode(privKeyHex)
         val pub = Crypto.derivePublicKey(priv)
 
@@ -252,6 +252,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         "dns_server" to (prefs.getString("dns_server", "8.8.8.8") ?: "8.8.8.8"),
         "channel" to (prefs.getString("channel", "#test") ?: "#test"),
         "nickname" to (prefs.getString("nickname", "android_user") ?: "android_user"),
+        "priv_key" to (prefs.getString("priv_key", "") ?: ""),
         "show_tech_logs" to prefs.getBoolean("show_tech_logs", true)
     )
 

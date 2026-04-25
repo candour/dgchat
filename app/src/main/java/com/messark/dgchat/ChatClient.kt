@@ -99,6 +99,11 @@ class ChatClient(
         technicalLog("DNS Join Query Length: ${query.length}")
         val (response, _) = dnsHelper.queryTxt(query) { technicalLog(it) }
         technicalLog("DNS Join Response size: ${response.size}")
+
+        if (response.isEmpty()) {
+            throw Exception("Join failed: No DNS response. This likely means the nickname is already taken or the key is invalid for this nickname.")
+        }
+
         if (response.size <= 12) throw Exception("Invalid join response size: ${response.size}")
 
         val respNonce = response.sliceArray(0 until 12)
