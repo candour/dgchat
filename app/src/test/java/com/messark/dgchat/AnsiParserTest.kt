@@ -93,4 +93,53 @@ class AnsiParserTest {
         assertEquals(annotated.text, back.text)
         assertEquals(2, back.spanStyles.size)
     }
+
+    @Test
+    fun testAnsiOptimization() {
+        val builder = AnnotatedString.Builder("red")
+        builder.addStyle(SpanStyle(color = Color(0xFFF44336)), 0, 3)
+        val annotated = builder.toAnnotatedString()
+
+        val ansi = AnsiParser.toAnsiString(annotated)
+        println("DEBUG: testAnsiOptimization output: ${ansi.replace("\u001b", "\\e")}")
+        assertEquals("\u001b[31mred\u001b[m", ansi)
+    }
+
+    @Test
+    fun testIncrementalAnsiOptimization() {
+        val builder = AnnotatedString.Builder("BoldRed")
+        builder.addStyle(SpanStyle(fontWeight = FontWeight.Bold), 0, 7)
+        builder.addStyle(SpanStyle(color = Color(0xFFF44336)), 4, 7)
+        val annotated = builder.toAnnotatedString()
+
+        val ansi = AnsiParser.toAnsiString(annotated)
+        assertEquals("\u001b[1mBold\u001b[31mRed\u001b[m", ansi)
+    }
+
+    @Test
+    fun testUnsetOptimization() {
+        val builder = AnnotatedString.Builder("BoldPlain")
+        builder.addStyle(SpanStyle(fontWeight = FontWeight.Bold), 0, 4)
+        val annotated = builder.toAnnotatedString()
+
+        val ansi = AnsiParser.toAnsiString(annotated)
+        // Bold is \u001b[1m
+        // To go back to plain, \u001b[22m is 5 chars, \u001b[m is 4 chars.
+        // Wait, \u001b[m is actually shorter.
+        assertEquals("\u001b[1mBold\u001b[mPlain", ansi)
+    }
+
+    @Test
+    fun testSwitchColorOptimization() {
+        val builder = AnnotatedString.Builder("RedBlue")
+        builder.addStyle(SpanStyle(color = Color(0xFFF44336)), 0, 3)
+        builder.addStyle(SpanStyle(color = Color(0xFF2196F3)), 3, 7)
+        val annotated = builder.toAnnotatedString()
+
+        val ansi = AnsiParser.toAnsiString(annotated)
+        // Red is 31, Blue is 34.
+        // Incremental: \u001b[34m (5 chars)
+        // Reset: \u001b[0;34m (7 chars)
+        assertEquals("\u001b[31mRed\u001b[34mBlue\u001b[m", ansi)
+    }
 }

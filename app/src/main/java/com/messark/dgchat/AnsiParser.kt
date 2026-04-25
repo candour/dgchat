@@ -153,7 +153,7 @@ object AnsiParser {
             .distinct()
             .sorted()
 
-        var currentStyle = SpanStyle()
+        var currentState = AnsiState()
 
         for (i in 0 until transitionPoints.size - 1) {
             val start = transitionPoints[i]
@@ -164,54 +164,95 @@ object AnsiParser {
             spanStyles.filter { it.start < end && it.end > start }.forEach {
                 rangeStyle = rangeStyle.merge(it.item)
             }
+            val targetState = rangeStyle.toAnsiState()
 
-            if (rangeStyle != currentStyle) {
-                // Reset then apply
-                sb.append("\u001b[0m")
-
-                val codes = mutableListOf<Int>()
-                if (rangeStyle.fontWeight == FontWeight.Bold) codes.add(1)
-                if (rangeStyle.fontStyle == FontStyle.Italic) codes.add(3)
-                if (rangeStyle.textDecoration == TextDecoration.Underline) codes.add(4)
-
-                if (rangeStyle.color != Color.Unspecified) {
-                    val index = basicColors.indexOf(rangeStyle.color)
-                    if (index != -1) {
-                        codes.add(30 + index)
-                    } else {
-                        codes.add(38)
-                        codes.add(2)
-                        codes.add((rangeStyle.color.red * 255).toInt())
-                        codes.add((rangeStyle.color.green * 255).toInt())
-                        codes.add((rangeStyle.color.blue * 255).toInt())
-                    }
-                }
-
-                if (rangeStyle.background != Color.Unspecified) {
-                    val index = basicColors.indexOf(rangeStyle.background)
-                    if (index != -1) {
-                        codes.add(40 + index)
-                    } else {
-                        codes.add(48)
-                        codes.add(2)
-                        codes.add((rangeStyle.background.red * 255).toInt())
-                        codes.add((rangeStyle.background.green * 255).toInt())
-                        codes.add((rangeStyle.background.blue * 255).toInt())
-                    }
-                }
-
-                if (codes.isNotEmpty()) {
-                    sb.append("\u001b[${codes.joinToString(";")}m")
-                }
-                currentStyle = rangeStyle
+            if (targetState != currentState) {
+                sb.append(getBestTransition(currentState, targetState))
+                currentState = targetState
             }
             sb.append(text.substring(start, end))
         }
 
-        if (currentStyle != SpanStyle()) {
-            sb.append("\u001b[0m")
+        if (currentState != AnsiState()) {
+            sb.append(getBestTransition(currentState, AnsiState()))
         }
 
         return sb.toString()
+    }
+
+    private data class AnsiState(
+        val bold: Boolean = false,
+        val italic: Boolean = false,
+        val underline: Boolean = false,
+        val fgColor: Color = Color.Unspecified,
+        val bgColor: Color = Color.Unspecified
+    )
+
+    private fun SpanStyle.toAnsiState(): AnsiState {
+        return AnsiState(
+            bold = fontWeight == FontWeight.Bold,
+            italic = fontStyle == FontStyle.Italic,
+            underline = textDecoration == TextDecoration.Underline,
+            fgColor = color,
+            bgColor = background
+        )
+    }
+
+    private fun getColorCodes(color: Color, isForeground: Boolean): List<Int> {
+        val codes = mutableListOf<Int>()
+        val base = if (isForeground) 30 else 40
+        val brightBase = if (isForeground) 90 else 100
+
+        val basicIndex = basicColors.indexOf(color)
+        if (basicIndex != -1) {
+            codes.add(base + basicIndex)
+        } else {
+            val brightIndex = brightColors.indexOf(color)
+            if (brightIndex != -1) {
+                codes.add(brightBase + brightIndex)
+            } else {
+                codes.add(base + 8)
+                codes.add(2)
+                codes.add((color.red * 255).toInt())
+                codes.add((color.green * 255).toInt())
+                codes.add((color.blue * 255).toInt())
+            }
+        }
+        return codes
+    }
+
+    private fun getBestTransition(current: AnsiState, target: AnsiState): String {
+        if (current == target) return ""
+
+        val incrementalCodes = mutableListOf<Int>()
+        if (target.bold != current.bold) incrementalCodes.add(if (target.bold) 1 else 22)
+        if (target.italic != current.italic) incrementalCodes.add(if (target.italic) 3 else 23)
+        if (target.underline != current.underline) incrementalCodes.add(if (target.underline) 4 else 24)
+
+        if (target.fgColor != current.fgColor) {
+            if (target.fgColor == Color.Unspecified) incrementalCodes.add(39)
+            else incrementalCodes.addAll(getColorCodes(target.fgColor, true))
+        }
+
+        if (target.bgColor != current.bgColor) {
+            if (target.bgColor == Color.Unspecified) incrementalCodes.add(49)
+            else incrementalCodes.addAll(getColorCodes(target.bgColor, false))
+        }
+
+        val incrementalStr = "\u001b[${incrementalCodes.joinToString(";")}m"
+
+        // Reset option
+        val resetCodes = mutableListOf<Int>()
+        resetCodes.add(0)
+        if (target.bold) resetCodes.add(1)
+        if (target.italic) resetCodes.add(3)
+        if (target.underline) resetCodes.add(4)
+        if (target.fgColor != Color.Unspecified) resetCodes.addAll(getColorCodes(target.fgColor, true))
+        if (target.bgColor != Color.Unspecified) resetCodes.addAll(getColorCodes(target.bgColor, false))
+
+        val resetStr = if (target == AnsiState()) "\u001b[m"
+        else "\u001b[${resetCodes.joinToString(";")}m"
+
+        return if (incrementalStr.length <= resetStr.length) incrementalStr else resetStr
     }
 }
