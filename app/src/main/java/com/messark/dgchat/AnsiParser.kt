@@ -9,7 +9,7 @@ import androidx.compose.ui.text.style.TextDecoration
 
 object AnsiParser {
 
-    private val basicColors = listOf(
+    val basicColors = listOf(
         Color(0xFF212121), // Black (Grey 900)
         Color(0xFFF44336), // Red (Red 500)
         Color(0xFF4CAF50), // Green (Green 500)
@@ -141,5 +141,77 @@ object AnsiParser {
             }
             else -> Color.Unspecified
         }
+    }
+
+    fun toAnsiString(annotatedString: AnnotatedString): String {
+        val sb = StringBuilder()
+        val text = annotatedString.text
+        val spanStyles = annotatedString.spanStyles
+
+        val transitionPoints = (spanStyles.flatMap { listOf(it.start, it.end) } + 0 + text.length)
+            .filter { it in 0..text.length }
+            .distinct()
+            .sorted()
+
+        var currentStyle = SpanStyle()
+
+        for (i in 0 until transitionPoints.size - 1) {
+            val start = transitionPoints[i]
+            val end = transitionPoints[i + 1]
+            if (start == end) continue
+
+            var rangeStyle = SpanStyle()
+            spanStyles.filter { it.start < end && it.end > start }.forEach {
+                rangeStyle = rangeStyle.merge(it.item)
+            }
+
+            if (rangeStyle != currentStyle) {
+                // Reset then apply
+                sb.append("\u001b[0m")
+
+                val codes = mutableListOf<Int>()
+                if (rangeStyle.fontWeight == FontWeight.Bold) codes.add(1)
+                if (rangeStyle.fontStyle == FontStyle.Italic) codes.add(3)
+                if (rangeStyle.textDecoration == TextDecoration.Underline) codes.add(4)
+
+                if (rangeStyle.color != Color.Unspecified) {
+                    val index = basicColors.indexOf(rangeStyle.color)
+                    if (index != -1) {
+                        codes.add(30 + index)
+                    } else {
+                        codes.add(38)
+                        codes.add(2)
+                        codes.add((rangeStyle.color.red * 255).toInt())
+                        codes.add((rangeStyle.color.green * 255).toInt())
+                        codes.add((rangeStyle.color.blue * 255).toInt())
+                    }
+                }
+
+                if (rangeStyle.background != Color.Unspecified) {
+                    val index = basicColors.indexOf(rangeStyle.background)
+                    if (index != -1) {
+                        codes.add(40 + index)
+                    } else {
+                        codes.add(48)
+                        codes.add(2)
+                        codes.add((rangeStyle.background.red * 255).toInt())
+                        codes.add((rangeStyle.background.green * 255).toInt())
+                        codes.add((rangeStyle.background.blue * 255).toInt())
+                    }
+                }
+
+                if (codes.isNotEmpty()) {
+                    sb.append("\u001b[${codes.joinToString(";")}m")
+                }
+                currentStyle = rangeStyle
+            }
+            sb.append(text.substring(start, end))
+        }
+
+        if (currentStyle != SpanStyle()) {
+            sb.append("\u001b[0m")
+        }
+
+        return sb.toString()
     }
 }

@@ -1,10 +1,13 @@
 package com.messark.dgchat
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AnsiParserTest {
@@ -70,5 +73,24 @@ class AnsiParserTest {
         val bgPart = result.spanStyles.find { result.text.substring(it.start, it.end) == "Green BG" }
         // Green (Green 500)
         assertEquals(Color(0xFF4CAF50), bgPart?.item?.background)
+    }
+
+    @Test
+    fun testToAnsiString() {
+        val builder = AnnotatedString.Builder("Hello World")
+        builder.addStyle(SpanStyle(fontWeight = FontWeight.Bold), 0, 5)
+        builder.addStyle(SpanStyle(color = Color(0xFFF44336)), 6, 11)
+        val annotated = builder.toAnnotatedString()
+
+        val ansi = AnsiParser.toAnsiString(annotated)
+        // Expected: "\u001b[0m\u001b[1mHello\u001b[0m \u001b[31mWorld\u001b[0m"
+        // Note: my implementation always starts with [0m if it's different from initial (empty)
+        assertTrue(ansi.contains("\u001b[1mHello"))
+        assertTrue(ansi.contains("\u001b[31mWorld"))
+
+        // Round trip
+        val back = AnsiParser.parseAnsi(ansi)
+        assertEquals(annotated.text, back.text)
+        assertEquals(2, back.spanStyles.size)
     }
 }
