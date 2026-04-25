@@ -7,6 +7,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -228,6 +230,7 @@ fun SettingsDialog(onDismiss: () -> Unit, viewModel: MainViewModel) {
     var dnsServer by remember { mutableStateOf(currentSettings["dns_server"] as String) }
     var channel by remember { mutableStateOf(currentSettings["channel"] as String) }
     var nickname by remember { mutableStateOf(currentSettings["nickname"] as String) }
+    var privKey by remember { mutableStateOf(currentSettings["priv_key"] as String) }
     var showTechLogs by remember { mutableStateOf(currentSettings["show_tech_logs"] as Boolean) }
     var dnsTestResult by remember { mutableStateOf<Boolean?>(null) }
 
@@ -235,11 +238,15 @@ fun SettingsDialog(onDismiss: () -> Unit, viewModel: MainViewModel) {
         onDismissRequest = onDismiss,
         title = { Text("Settings") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 TextField(value = baseDomain, onValueChange = { baseDomain = it }, label = { Text("Base Domain") })
                 TextField(value = dnsServer, onValueChange = { dnsServer = it }, label = { Text("DNS Server") })
                 TextField(value = channel, onValueChange = { channel = it }, label = { Text("Channel") })
                 TextField(value = nickname, onValueChange = { nickname = it }, label = { Text("Nickname") })
+                TextField(value = privKey, onValueChange = { privKey = it }, label = { Text("Private Key") })
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -264,7 +271,7 @@ fun SettingsDialog(onDismiss: () -> Unit, viewModel: MainViewModel) {
         },
         confirmButton = {
             Button(onClick = {
-                viewModel.updateSettings(baseDomain, dnsServer, channel, nickname, showTechLogs)
+                viewModel.updateSettings(baseDomain, dnsServer, channel, nickname, privKey, showTechLogs)
                 onDismiss()
             }) {
                 Text("Save")
