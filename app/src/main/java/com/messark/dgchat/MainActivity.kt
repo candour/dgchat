@@ -215,6 +215,24 @@ fun TechnicalLogItem(entry: LogEntry.Technical) {
 fun ChatInput(onSendMessage: (String) -> Unit) {
     var textFieldValue by remember { mutableStateOf(TextFieldValue(AnnotatedString(""))) }
     var activeStyles by remember { mutableStateOf(setOf<SpanStyle>()) }
+    val context = LocalContext.current
+    val viewModel: MainViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    val isConnected by viewModel.isConnected.collectAsState()
+    val baseDomain by viewModel.baseDomain.collectAsState()
+
+    var lastPartCount by remember { mutableIntStateOf(1) }
+
+    LaunchedEffect(textFieldValue.annotatedString, baseDomain) {
+        val ansiText = AnsiParser.toAnsiString(textFieldValue.annotatedString)
+        val limit = MessageUtils.calculateLimit(baseDomain)
+        val parts = MessageUtils.splitMessage(ansiText, limit)
+        val currentPartCount = parts.size
+
+        if (currentPartCount != lastPartCount) {
+            Toast.makeText(context, "Message $currentPartCount", Toast.LENGTH_SHORT).show()
+            lastPartCount = currentPartCount
+        }
+    }
 
     Column(
         modifier = Modifier
