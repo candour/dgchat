@@ -45,6 +45,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _isConnected = MutableStateFlow(false)
     val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
 
+    private val _baseDomain = MutableStateFlow(prefs.getString("base_domain", "dg.cx") ?: "dg.cx")
+    val baseDomain: StateFlow<String> = _baseDomain.asStateFlow()
+
     private val _isJoining = MutableStateFlow(false)
     val isJoining: StateFlow<Boolean> = _isJoining.asStateFlow()
 
@@ -184,21 +187,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun sendMessage(text: String) {
         if (text.isBlank()) return
-        val chatMsg = ChatMessage(
-            timestamp = System.currentTimeMillis() / 1000,
-            type = 'M',
-            content = text,
-            isMe = true
-        )
-        val entry = LogEntry.Message(chatMsg, MessageStatus.SENDING)
-        _logEntries.value = _logEntries.value + entry
+        val baseDomain = chatClient?.baseDomain ?: "dg.cx"
+        val limit = MessageUtils.calculateLimit(baseDomain)
+        val parts = MessageUtils.splitMessage(text, limit)
 
         viewModelScope.launch {
-            val id = chatClient?.send('M', text) ?: 0L
-            if (id == 0L) {
-                updateMessageStatus(entry.localId, MessageStatus.FAILED)
-            } else {
-                updateMessageId(entry.localId, id)
+            parts.forEach { part ->
+                val chatMsg = ChatMessage(
+                    timestamp = System.currentTimeMillis() / 1000,
+                    type = 'M',
+                    content = part,
+                    isMe = true
+                )
+                val entry = LogEntry.Message(chatMsg, MessageStatus.SENDING)
+                _logEntries.value = _logEntries.value + entry
+
+                val id = chatClient?.send('M', part) ?: 0L
+                if (id == 0L) {
+                    updateMessageStatus(entry.localId, MessageStatus.FAILED)
+                } else {
+                    updateMessageId(entry.localId, id)
+                }
             }
         }
     }
@@ -240,6 +249,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             .apply()
 
         _showTechnicalLogs.value = showTechLogs
+        _baseDomain.value = baseDomain
 
         // Re-init client
         val priv = Base32Crockford.decode(privKeyHex)
