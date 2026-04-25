@@ -55,10 +55,8 @@ class ChatClient(
     }
 
     suspend fun connect(): Boolean = withContext(Dispatchers.IO) {
-        technicalLog("DNS Query TXT: $baseDomain")
-        val (response, _) = dnsHelper.queryTxt(baseDomain)
+        val (response, _) = dnsHelper.queryTxt(baseDomain) { technicalLog(it) }
         if (response.isEmpty()) {
-            technicalLog("DNS Response: Empty")
             throw Exception("Empty TXT response from $baseDomain")
         }
 
@@ -98,8 +96,8 @@ class ChatClient(
 
         val query = "${makeDnsLabels(Base32Crockford.encode(encrypted))}.${Base32Crockford.encode(nonce)}.${Base32Crockford.encode(clientPublicKey)}.$baseDomain"
 
-        technicalLog("DNS Join Query: $query")
-        val (response, _) = dnsHelper.queryTxt(query)
+        technicalLog("DNS Join Query Length: ${query.length}")
+        val (response, _) = dnsHelper.queryTxt(query) { technicalLog(it) }
         technicalLog("DNS Join Response size: ${response.size}")
         if (response.size <= 12) throw Exception("Invalid join response size: ${response.size}")
 
@@ -107,6 +105,7 @@ class ChatClient(
         val respCiphertext = response.sliceArray(12 until response.size)
 
         val plaintext = Crypto.decryptGcm(clientCipherKey!!, respNonce, respCiphertext)
+        technicalLog("DNS Join plaintext size: ${plaintext.size}")
         if (plaintext.size < 76) throw Exception("Invalid join plaintext size: ${plaintext.size}")
 
         val buffer = ByteBuffer.wrap(plaintext).order(ByteOrder.BIG_ENDIAN)
@@ -115,11 +114,14 @@ class ChatClient(
         channelPrivateKey = ByteArray(32).also { buffer.get(it) }
         val chGen = buffer.getInt()
 
+        technicalLog("Join success: uid=$uid, chGen=$chGen")
+
         channelCipherKey = Crypto.ecdh(channelPrivateKey!!, serverPublicKey!!)
 
         val newGen = if (chGen == 0) 1 else chGen
         val msgPrivBytes = Crypto.hkdf(channelPrivateKey!!, namePrivateKey!!, "msg $newGen", 32)
         channelMsgPrivateKey = msgPrivBytes
+        technicalLog("Derived channelMsgPrivateKey for gen $newGen")
 
         if (chGen == 0) {
             val msgPrivPub = Crypto.derivePublicKey(channelMsgPrivateKey!!)
@@ -155,8 +157,8 @@ class ChatClient(
 
             val query = "${makeDnsLabels(Base32Crockford.encode(encryptedMessage))}.${Base32Crockford.encode(nonce)}.${Base32Crockford.encode(encryptedAuth)}.$baseDomain"
 
-            technicalLog("DNS Send Query: $query")
-            val (_, cname) = dnsHelper.queryTxt(query)
+            technicalLog("DNS Send Query Length: ${query.length}")
+            val (_, cname) = dnsHelper.queryTxt(query) { technicalLog(it) }
             if (cname == null) {
                 technicalLog("DNS Send Response: No CNAME")
                 return@withContext 0L
@@ -207,8 +209,7 @@ class ChatClient(
         val channelPubEncoded = Base32Crockford.encode(channelPublicKey!!)
         val decryptKey = Crypto.ecdh(channelMsgPrivateKey!!, serverPublicKey!!)
         val query = "$id.$channelPubEncoded.$baseDomain"
-        technicalLog("DNS Fetch Query: $query")
-        val (message, _) = dnsHelper.queryTxt(query)
+        val (message, _) = dnsHelper.queryTxt(query) { technicalLog(it) }
         if (message.isNotEmpty()) {
             return processMessage(id, message, decryptKey)
         }
@@ -225,8 +226,7 @@ class ChatClient(
         while (true) {
             try {
                 val query = "$channelPubEncoded.$baseDomain"
-                technicalLog("DNS Poll Query: $query")
-                val (message, cname) = dnsHelper.queryTxt(query)
+                val (message, cname) = dnsHelper.queryTxt(query) { technicalLog(it) }
 
                 if (message.isNotEmpty() && cname != null) {
                     technicalLog("DNS Poll Response CNAME: $cname")
