@@ -258,6 +258,7 @@ object AnsiParser {
 
         // Prefer incremental if it's shorter OR if it's a reset to AnsiState() and they are same length
         // to avoid potential issues with some parsers and empty reset codes.
-        return if (incrementalStr.length < resetStr.length) incrementalStr else resetStr
+        if (incrementalCodes.isEmpty() && target != AnsiState()) return ""
+        return if (incrementalStr.length <= resetStr.length) incrementalStr else resetStr
     }
 }
