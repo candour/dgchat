@@ -1,6 +1,7 @@
 package com.messark.dgchat
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.font.FontStyle
@@ -174,5 +175,66 @@ class AnsiParserTest {
         val annotated = builder.toAnnotatedString()
         val ansi = AnsiParser.toAnsiString(annotated)
         println("ALL STYLES ANSI: ${ansi.replace("\u001b", "\\e")}")
+    }
+
+    @Test
+    fun testExtendedColorAndBoldStacking() {
+        // This tests "Fix Parameter Consumption" and "State Stacking"
+        val input = "\u001b[38;5;208;1mOrangeBold\u001b[0m"
+        val result = AnsiParser.parseAnsi(input)
+        assertEquals("OrangeBold", result.text)
+        assertEquals(1, result.spanStyles.size)
+        val style = result.spanStyles[0].item
+
+        // 208 should be applied
+        assertTrue("Color should be set", style.color != Color.Unspecified)
+        // 1 (Bold) should be applied. If consumption was broken, it might have been skipped.
+        assertEquals(FontWeight.Bold, style.fontWeight)
+    }
+
+    @Test
+    fun testColorComparisonStable() {
+        // This tests "Fix Color Comparison Logic"
+        val colorFromBasic = AnsiParser.basicColors[1] // Red
+        val identicalColor = Color(red = colorFromBasic.red, green = colorFromBasic.green, blue = colorFromBasic.blue, alpha = colorFromBasic.alpha)
+
+        val builder = AnnotatedString.Builder("test")
+        builder.addStyle(SpanStyle(color = identicalColor), 0, 4)
+        val annotated = builder.toAnnotatedString()
+
+        val ansi = AnsiParser.toAnsiString(annotated)
+        // Should use [31m for basic red
+        assertTrue("Should use basic color code 31, got: $ansi", ansi.contains("[31m"))
+    }
+
+    @Test
+    fun testUnspecifiedColorNoCrash() {
+        // This tests "Prevent Unspecified Color Crashes"
+        val builder = AnnotatedString.Builder("unspecified")
+        builder.addStyle(SpanStyle(color = Color.Unspecified), 0, 11)
+        val annotated = builder.toAnnotatedString()
+
+        // Should not throw IllegalStateException
+        val ansi = AnsiParser.toAnsiString(annotated)
+        assertEquals("unspecified", ansi)
+    }
+
+    @Test
+    fun testIndependentAttributePersistence() {
+        // This tests "Improve State Management (State Stacking)"
+        val input = "\u001b[1mBold \u001b[31mRed\u001b[0m"
+        val result = AnsiParser.parseAnsi(input)
+
+        assertEquals("Bold Red", result.text)
+
+        val boldPart = result.spanStyles.find { result.text.substring(it.start, it.end) == "Bold " }
+        val redPart = result.spanStyles.find { result.text.substring(it.start, it.end) == "Red" }
+
+        assertEquals(FontWeight.Bold, boldPart?.item?.fontWeight)
+        assertEquals(Color.Unspecified, boldPart?.item?.color ?: Color.Unspecified)
+
+        // Red part should still be Bold
+        assertEquals(FontWeight.Bold, redPart?.item?.fontWeight)
+        assertEquals(Color(0xFFF44336).toArgb(), redPart?.item?.color?.toArgb())
     }
 }
