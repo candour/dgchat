@@ -239,11 +239,7 @@ class ChatClient(
                     val newId = idStr.toLongOrNull() ?: continue
 
                     if (firstPoll) {
-                        val startId = if (lastMessageId == 0L || (newId - lastMessageId) > 20) {
-                            max(1L, newId - 19)
-                        } else {
-                            lastMessageId + 1
-                        }
+                        val startId = max(1L, newId - 19)
                         for (id in startId until newId) {
                             fetchMessage(id)
                         }

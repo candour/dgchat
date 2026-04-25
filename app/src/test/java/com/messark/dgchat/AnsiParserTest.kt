@@ -83,7 +83,6 @@ class AnsiParserTest {
         val annotated = builder.toAnnotatedString()
 
         val ansi = AnsiParser.toAnsiString(annotated)
-        // Expected: "\u001b[0m\u001b[1mHello\u001b[0m \u001b[31mWorld\u001b[0m"
         // Note: my implementation always starts with [0m if it's different from initial (empty)
         assertTrue(ansi.contains("\u001b[1mHello"))
         assertTrue(ansi.contains("\u001b[31mWorld"))
@@ -125,7 +124,6 @@ class AnsiParserTest {
         val ansi = AnsiParser.toAnsiString(annotated)
         // Bold is \u001b[1m
         // To go back to plain, \u001b[22m is 5 chars, \u001b[m is 4 chars.
-        // Wait, \u001b[m is actually shorter.
         assertEquals("\u001b[1mBold\u001b[mPlain", ansi)
     }
 
@@ -137,9 +135,44 @@ class AnsiParserTest {
         val annotated = builder.toAnnotatedString()
 
         val ansi = AnsiParser.toAnsiString(annotated)
-        // Red is 31, Blue is 34.
-        // Incremental: \u001b[34m (5 chars)
-        // Reset: \u001b[0;34m (7 chars)
         assertEquals("\u001b[31mRed\u001b[34mBlue\u001b[m", ansi)
+    }
+
+    @Test
+    fun testReproductionExtraM() {
+        val builder = AnnotatedString.Builder("Test")
+        builder.addStyle(SpanStyle(fontWeight = FontWeight.Bold), 0, 4)
+        val annotated = builder.toAnnotatedString()
+        val ansi = AnsiParser.toAnsiString(annotated)
+        println("REPRODUCTION ANSI: ${ansi.replace("\u001b", "\\e")}")
+        // Check if it ends with "mm" when replaced with \e
+        assertTrue("Should not end with extra m: $ansi", !ansi.endsWith("mm"))
+    }
+
+    @Test
+    fun testUnsetCodes() {
+        val input = "\u001b[1mBold\u001b[22mPlain"
+        val result = AnsiParser.parseAnsi(input)
+        assertEquals("BoldPlain", result.text)
+        val boldPart = result.spanStyles.find { result.text.substring(it.start, it.end) == "Bold" }
+        assertEquals(FontWeight.Bold, boldPart?.item?.fontWeight)
+
+        val plainPartStart = result.text.indexOf("Plain")
+        val styleAtPlain = result.spanStyles.find { it.start <= plainPartStart && it.end > plainPartStart }
+        assertEquals(null, styleAtPlain?.item?.fontWeight)
+    }
+
+    @Test
+    fun testAllStyles() {
+        val builder = AnnotatedString.Builder("Bold Italic Underline Red Green Blue")
+        builder.addStyle(SpanStyle(fontWeight = FontWeight.Bold), 0, 4)
+        builder.addStyle(SpanStyle(fontStyle = FontStyle.Italic), 5, 11)
+        builder.addStyle(SpanStyle(textDecoration = TextDecoration.Underline), 12, 21)
+        builder.addStyle(SpanStyle(color = Color(0xFFF44336)), 22, 25)
+        builder.addStyle(SpanStyle(color = Color(0xFF4CAF50)), 26, 31)
+        builder.addStyle(SpanStyle(color = Color(0xFF2196F3)), 32, 36)
+        val annotated = builder.toAnnotatedString()
+        val ansi = AnsiParser.toAnsiString(annotated)
+        println("ALL STYLES ANSI: ${ansi.replace("\u001b", "\\e")}")
     }
 }
