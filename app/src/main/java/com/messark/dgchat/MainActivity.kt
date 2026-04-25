@@ -73,9 +73,9 @@ class MainActivity : ComponentActivity() {
                 ) { innerPadding ->
                     Column(
                         modifier = Modifier
-                            .padding(innerPadding)
-                            .imePadding()
                             .fillMaxSize()
+                            .padding(innerPadding)
+                            .consumeWindowInsets(innerPadding)
                     ) {
                         if (!isConnected) {
                             Box(
@@ -100,7 +100,7 @@ class MainActivity : ComponentActivity() {
                                 .weight(1f)
                                 .fillMaxWidth(),
                             contentPadding = PaddingValues(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.Bottom),
                             reverseLayout = true
                         ) {
                             items(reversedEntries, key = { it.key }) { entry ->
@@ -205,6 +205,7 @@ fun ChatInput(onSendMessage: (String) -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .windowInsetsPadding(WindowInsets.ime)
             .padding(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
