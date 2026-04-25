@@ -19,8 +19,10 @@ import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import android.widget.Toast
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.messark.dgchat.ui.theme.DgChatTheme
 
@@ -225,6 +227,7 @@ fun ChatInput(onSendMessage: (String) -> Unit) {
 
 @Composable
 fun SettingsDialog(onDismiss: () -> Unit, viewModel: MainViewModel) {
+    val context = LocalContext.current
     val currentSettings = viewModel.getSettings()
     var baseDomain by remember { mutableStateOf(currentSettings["base_domain"] as String) }
     var dnsServer by remember { mutableStateOf(currentSettings["dns_server"] as String) }
@@ -271,8 +274,12 @@ fun SettingsDialog(onDismiss: () -> Unit, viewModel: MainViewModel) {
         },
         confirmButton = {
             Button(onClick = {
-                viewModel.updateSettings(baseDomain, dnsServer, channel, nickname, privKey, showTechLogs)
-                onDismiss()
+                if (NicknameUtils.isValid(nickname)) {
+                    viewModel.updateSettings(baseDomain, dnsServer, channel, nickname, privKey, showTechLogs)
+                    onDismiss()
+                } else {
+                    Toast.makeText(context, "Invalid nick. 32 chars max, no punctuation except -", Toast.LENGTH_LONG).show()
+                }
             }) {
                 Text("Save")
             }
