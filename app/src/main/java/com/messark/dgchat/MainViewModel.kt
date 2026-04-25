@@ -68,6 +68,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             priv to Crypto.derivePublicKey(priv)
         }
 
+        if (prefs.getString("nickname", null) == null) {
+            prefs.edit().putString("nickname", NicknameUtils.generateDefaultNickname()).apply()
+        }
+
         val baseDomain = prefs.getString("base_domain", "dg.cx") ?: "dg.cx"
         val dnsServer = prefs.getString("dns_server", "8.8.8.8")
 
@@ -141,7 +145,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun connectAndJoin() {
         val channel = prefs.getString("channel", "#test") ?: "#test"
-        val nickname = prefs.getString("nickname", "android_user") ?: "android_user"
+        val nickname = prefs.getString("nickname", "") ?: ""
         val baseDomain = chatClient?.baseDomain ?: "unknown"
 
         viewModelScope.launch {
@@ -251,7 +255,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         "base_domain" to (prefs.getString("base_domain", "dg.cx") ?: "dg.cx"),
         "dns_server" to (prefs.getString("dns_server", "8.8.8.8") ?: "8.8.8.8"),
         "channel" to (prefs.getString("channel", "#test") ?: "#test"),
-        "nickname" to (prefs.getString("nickname", "android_user") ?: "android_user"),
+        "nickname" to (prefs.getString("nickname", "") ?: ""),
         "priv_key" to (prefs.getString("priv_key", "") ?: ""),
         "show_tech_logs" to prefs.getBoolean("show_tech_logs", true)
     )
