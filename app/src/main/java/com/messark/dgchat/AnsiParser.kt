@@ -247,7 +247,11 @@ object AnsiParser {
             else incrementalCodes.addAll(getColorCodes(target.bgColor, false))
         }
 
+        // FIX START: If no codes were added, return empty string immediately
+        if (incrementalCodes.isEmpty() && target != AnsiState()) return ""
+        
         val incrementalStr = "\u001b[${incrementalCodes.joinToString(";")}m"
+        // FIX END
 
         // Reset option
         val resetCodes = mutableListOf<Int>()
@@ -258,12 +262,9 @@ object AnsiParser {
         if (target.fgColor != Color.Unspecified) resetCodes.addAll(getColorCodes(target.fgColor, true))
         if (target.bgColor != Color.Unspecified) resetCodes.addAll(getColorCodes(target.bgColor, false))
 
-        val resetStr = if (target == AnsiState()) "\u001b[m"
+        val resetStr = if (target == AnsiState()) "\u001b[0m" // Explicit 0 is safer
         else "\u001b[${resetCodes.joinToString(";")}m"
 
-        // Prefer incremental if it's shorter OR if it's a reset to AnsiState() and they are same length
-        // to avoid potential issues with some parsers and empty reset codes.
-        if (incrementalCodes.isEmpty() && target != AnsiState()) return ""
         return if (incrementalStr.length <= resetStr.length) incrementalStr else resetStr
-    }
 }
+
