@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -32,12 +33,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.messark.dgchat.ui.theme.DgChatTheme
+import com.messark.dgchat.ui.theme.NicknameColorsDark
+import com.messark.dgchat.ui.theme.NicknameColorsLight
 
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
@@ -180,10 +185,82 @@ fun MessageItem(entry: LogEntry.Message) {
                     )
                 }
             }
-            SelectionContainer {
-                Text(text = AnsiParser.parseAnsi(message.content))
-            }
+            MessageContent(message)
         }
+    }
+}
+
+@Composable
+fun MessageContent(message: ChatMessage) {
+    val isDark = isSystemInDarkTheme()
+    val palette = if (isDark) NicknameColorsDark else NicknameColorsLight
+
+    val annotatedString = remember(message, isDark) {
+        val content = message.content
+        val type = message.type
+
+        when (type) {
+            'J' -> {
+                val rawNickname = content.trim()
+                val nicknameColor = if (message.isMe) Color.Unspecified else {
+                    val index = NicknameUtils.getNicknameColorIndex(rawNickname, palette.size)
+                    palette[index]
+                }
+                buildAnnotatedString {
+                    withStyle(SpanStyle(color = nicknameColor, fontWeight = FontWeight.Bold)) {
+                        append(rawNickname)
+                    }
+                }
+            }
+            'M' -> {
+                val firstSpace = content.indexOf(' ')
+                if (firstSpace == -1) {
+                    val rawNickname = content
+                    val nicknameColor = if (message.isMe) Color.Unspecified else {
+                        val index = NicknameUtils.getNicknameColorIndex(rawNickname, palette.size)
+                        palette[index]
+                    }
+                    buildAnnotatedString {
+                        withStyle(SpanStyle(color = nicknameColor, fontWeight = FontWeight.Bold)) {
+                            append(rawNickname)
+                            append(":")
+                        }
+                    }
+                } else {
+                    val nickname = content.substring(0, firstSpace)
+                    val rest = content.substring(firstSpace + 1)
+                    val nicknameColor = if (message.isMe) Color.Unspecified else {
+                        val index = NicknameUtils.getNicknameColorIndex(nickname, palette.size)
+                        palette[index]
+                    }
+
+                    if (rest.startsWith("/me ") || rest == "/me") {
+                        val emoteText = if (rest.startsWith("/me ")) rest.substring(4) else ""
+                        buildAnnotatedString {
+                            withStyle(SpanStyle(color = nicknameColor, fontWeight = FontWeight.Bold)) {
+                                append(nickname)
+                            }
+                            append(" ")
+                            append(AnsiParser.parseAnsi(emoteText, defaultStyle = SpanStyle(fontStyle = FontStyle.Italic)))
+                        }
+                    } else {
+                        buildAnnotatedString {
+                            withStyle(SpanStyle(color = nicknameColor, fontWeight = FontWeight.Bold)) {
+                                append(nickname)
+                                append(":")
+                            }
+                            append(" ")
+                            append(AnsiParser.parseAnsi(rest))
+                        }
+                    }
+                }
+            }
+            else -> AnsiParser.parseAnsi(content)
+        }
+    }
+
+    SelectionContainer {
+        Text(text = annotatedString)
     }
 }
 

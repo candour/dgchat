@@ -32,12 +32,12 @@ object AnsiParser {
         Color(0xFFFFFFFF)  // Bright White
     )
 
-    fun parseAnsi(text: String): AnnotatedString {
+    fun parseAnsi(text: String, defaultStyle: SpanStyle = SpanStyle()): AnnotatedString {
         val builder = AnnotatedString.Builder()
         val regex = Regex("\u001b\\[([\\d;]*)m")
         var lastMatchEnd = 0
 
-        var currentSpanStyle = SpanStyle()
+        var currentSpanStyle = defaultStyle
 
         regex.findAll(text).forEach { match ->
             // Append text before the match
@@ -55,13 +55,13 @@ object AnsiParser {
             val params = match.groupValues[1].split(';').filter { it.isNotEmpty() }.mapNotNull { it.toIntOrNull() }
             if (params.isEmpty()) {
                 // Treat empty as reset
-                currentSpanStyle = SpanStyle()
+                currentSpanStyle = defaultStyle
             } else {
                 var i = 0
                 while (i < params.size) {
                     val code = params[i]
                     when (code) {
-                        0 -> currentSpanStyle = SpanStyle() // Reset
+                        0 -> currentSpanStyle = defaultStyle // Reset
                         1 -> currentSpanStyle = currentSpanStyle.copy(fontWeight = FontWeight.Bold)
                         22 -> currentSpanStyle = currentSpanStyle.copy(fontWeight = null)
                         3 -> currentSpanStyle = currentSpanStyle.copy(fontStyle = FontStyle.Italic)
@@ -262,7 +262,7 @@ object AnsiParser {
         if (target.fgColor != Color.Unspecified) resetCodes.addAll(getColorCodes(target.fgColor, true))
         if (target.bgColor != Color.Unspecified) resetCodes.addAll(getColorCodes(target.bgColor, false))
 
-        val resetStr = if (target == AnsiState()) "\u001b[0m" // Explicit 0 is safer
+        val resetStr = if (target == AnsiState()) "\u001b[m"
         else "\u001b[${resetCodes.joinToString(";")}m"
 
         return if (incrementalStr.length <= resetStr.length) incrementalStr else resetStr
