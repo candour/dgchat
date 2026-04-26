@@ -14,4 +14,10 @@ object NicknameUtils {
             .joinToString("")
         return "androiduser$randomString"
     }
+
+    fun getNicknameColorIndex(nickname: String, paletteSize: Int): Int {
+        if (paletteSize <= 0) return 0
+        val hash = nickname.hashCode()
+        return (hash and 0x7FFFFFFF) % paletteSize
+    }
 }
