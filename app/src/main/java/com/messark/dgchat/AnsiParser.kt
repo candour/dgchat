@@ -266,5 +266,6 @@ object AnsiParser {
         else "\u001b[${resetCodes.joinToString(";")}m"
 
         return if (incrementalStr.length <= resetStr.length) incrementalStr else resetStr
+    }
 }
 
