@@ -262,7 +262,7 @@ object AnsiParser {
         if (target.fgColor != Color.Unspecified) resetCodes.addAll(getColorCodes(target.fgColor, true))
         if (target.bgColor != Color.Unspecified) resetCodes.addAll(getColorCodes(target.bgColor, false))
 
-        val resetStr = if (target == AnsiState()) "\u001b[m"
+        val resetStr = if (target == AnsiState()) "\u001b[0m"
         else "\u001b[${resetCodes.joinToString(";")}m"
 
         return if (incrementalStr.length <= resetStr.length) incrementalStr else resetStr
