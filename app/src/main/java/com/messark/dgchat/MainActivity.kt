@@ -202,10 +202,8 @@ fun MessageContent(message: ChatMessage) {
         when (type) {
             'J' -> {
                 val rawNickname = content.trim()
-                val nicknameColor = if (message.isMe) Color.Unspecified else {
-                    val index = NicknameUtils.getNicknameColorIndex(rawNickname, palette.size)
-                    palette[index]
-                }
+                val index = NicknameUtils.getNicknameColorIndex(rawNickname, palette.size)
+                val nicknameColor = palette[index]
                 buildAnnotatedString {
                     withStyle(SpanStyle(color = nicknameColor, fontWeight = FontWeight.Bold)) {
                         append(rawNickname)
@@ -216,10 +214,8 @@ fun MessageContent(message: ChatMessage) {
                 val firstSpace = content.indexOf(' ')
                 if (firstSpace == -1) {
                     val rawNickname = content
-                    val nicknameColor = if (message.isMe) Color.Unspecified else {
-                        val index = NicknameUtils.getNicknameColorIndex(rawNickname, palette.size)
-                        palette[index]
-                    }
+                    val index = NicknameUtils.getNicknameColorIndex(rawNickname, palette.size)
+                    val nicknameColor = palette[index]
                     buildAnnotatedString {
                         withStyle(SpanStyle(color = nicknameColor, fontWeight = FontWeight.Bold)) {
                             append(rawNickname)
@@ -229,10 +225,8 @@ fun MessageContent(message: ChatMessage) {
                 } else {
                     val nickname = content.substring(0, firstSpace)
                     val rest = content.substring(firstSpace + 1)
-                    val nicknameColor = if (message.isMe) Color.Unspecified else {
-                        val index = NicknameUtils.getNicknameColorIndex(nickname, palette.size)
-                        palette[index]
-                    }
+                    val index = NicknameUtils.getNicknameColorIndex(nickname, palette.size)
+                    val nicknameColor = palette[index]
 
                     if (rest.startsWith("/me ") || rest == "/me") {
                         val emoteText = if (rest.startsWith("/me ")) rest.substring(4) else ""

@@ -187,16 +187,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun sendMessage(text: String) {
         if (text.isBlank()) return
+        val nickname = prefs.getString("nickname", "") ?: ""
         val baseDomain = chatClient?.baseDomain ?: "dg.cx"
         val limit = MessageUtils.calculateLimit(baseDomain)
         val parts = MessageUtils.splitMessage(text, limit)
 
         viewModelScope.launch {
             parts.forEach { part ->
+                val displayContent = if (nickname.isNotEmpty()) "$nickname: $part" else part
                 val chatMsg = ChatMessage(
                     timestamp = System.currentTimeMillis() / 1000,
                     type = 'M',
-                    content = part,
+                    content = displayContent,
                     isMe = true
                 )
                 val entry = LogEntry.Message(chatMsg, MessageStatus.SENDING)

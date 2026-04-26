@@ -102,7 +102,7 @@ class AnsiParserTest {
 
         val ansi = AnsiParser.toAnsiString(annotated)
         println("DEBUG: testAnsiOptimization output: ${ansi.replace("\u001b", "\\e")}")
-        assertEquals("\u001b[31mred\u001b[m", ansi)
+        assertEquals("\u001b[31mred\u001b[0m", ansi)
     }
 
     @Test
@@ -113,7 +113,7 @@ class AnsiParserTest {
         val annotated = builder.toAnnotatedString()
 
         val ansi = AnsiParser.toAnsiString(annotated)
-        assertEquals("\u001b[1mBold\u001b[31mRed\u001b[m", ansi)
+        assertEquals("\u001b[1mBold\u001b[31mRed\u001b[0m", ansi)
     }
 
     @Test
@@ -124,8 +124,8 @@ class AnsiParserTest {
 
         val ansi = AnsiParser.toAnsiString(annotated)
         // Bold is \u001b[1m
-        // To go back to plain, \u001b[22m is 5 chars, \u001b[m is 4 chars.
-        assertEquals("\u001b[1mBold\u001b[mPlain", ansi)
+        // To go back to plain, \u001b[22m is 5 chars, \u001b[0m is 4 chars.
+        assertEquals("\u001b[1mBold\u001b[0mPlain", ansi)
     }
 
     @Test
@@ -136,7 +136,7 @@ class AnsiParserTest {
         val annotated = builder.toAnnotatedString()
 
         val ansi = AnsiParser.toAnsiString(annotated)
-        assertEquals("\u001b[31mRed\u001b[34mBlue\u001b[m", ansi)
+        assertEquals("\u001b[31mRed\u001b[34mBlue\u001b[0m", ansi)
     }
 
     @Test
